@@ -1,0 +1,12 @@
+[package]
+name = "dts-lsp"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1.36.0", features = [ "full" ] }
+tower-lsp = "0.20.0"
+tree-sitter = "0.20.10"
+tree-sitter-devicetree = { version = "0.4.0", git = "https://github.com/joelspadin/tree-sitter-devicetree" }
