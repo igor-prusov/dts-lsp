@@ -13,6 +13,10 @@ use tree_sitter::Query;
 use tree_sitter::QueryCursor;
 use tree_sitter_devicetree;
 
+mod file_depot;
+
+use file_depot::FileDepot;
+
 struct Backend {
     client: Client,
     data: Data,
@@ -59,7 +63,7 @@ impl Symbol {
 
 struct Data {
     labels: Mutex<HashMap<String, Symbol>>,
-    text: Mutex<String>,
+    fd: FileDepot,
 }
 
 impl Data {
@@ -76,6 +80,7 @@ impl Data {
         }
     }
 
+    /*
     fn set_text(&self, s: &str) {
         let mut data = self.text.lock().unwrap();
         *data = s.to_string();
@@ -85,11 +90,12 @@ impl Data {
         let s = self.text.lock().unwrap();
         s.clone()
     }
+    */
 
     fn new() -> Data {
         Data {
             labels: Mutex::new(HashMap::new()),
-            text: Mutex::new(String::new()),
+            fd: FileDepot::new(),
         }
     }
 }
@@ -121,10 +127,13 @@ impl LanguageServer for Backend {
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = &params.text_document.uri;
+
         let msg = format!("Open file: {}", uri);
         Logger::log(&msg);
+
         let text = params.text_document.text.as_str();
-        self.data.set_text(text);
+        self.data.fd.insert(uri, Some(text.to_string()));
+
         let mut parser = Parser::new();
         parser
             .set_language(tree_sitter_devicetree::language())
@@ -148,6 +157,32 @@ impl LanguageServer for Backend {
                 Logger::log(&format!("NODE<{}>: {:?}, {}", node.kind(), label, pos.row));
             }
         }
+
+        let q = Query::new(
+            tree_sitter_devicetree::language(),
+            "(preproc_include path: (string_literal)@id)",
+        )
+        .unwrap();
+        let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
+        for m in matches {
+            let nodes = m.nodes_for_capture_index(0);
+            for node in nodes {
+                let label = node.utf8_text(text.as_bytes()).unwrap();
+                let label = label.trim_matches('"');
+                let range = node.range();
+                let pos = range.start_point;
+                let new_url = uri.join(label).unwrap();
+                self.data.fd.insert(&new_url, None);
+                Logger::log(&format!(
+                    "INCLUDE<{}>: {}, {}",
+                    node.kind(),
+                    new_url,
+                    pos.row
+                ));
+            }
+        }
+
+        self.data.fd.dump();
     }
 
     async fn goto_definition(
@@ -156,7 +191,12 @@ impl LanguageServer for Backend {
     ) -> Result<Option<GotoDefinitionResponse>> {
         let location = input.text_document_position_params.position;
         let location = Point::new(location.line as usize, location.character as usize);
-        let text = self.data.get_text();
+        //let text = self.data.get_text();
+        let uri = input.text_document_position_params.text_document.uri;
+        let text = match self.data.fd.get_text(&uri) {
+            Some(text) => text,
+            None => return Ok(None),
+        };
         let mut parser = Parser::new();
         parser
             .set_language(tree_sitter_devicetree::language())
@@ -165,6 +205,7 @@ impl LanguageServer for Backend {
         let node = tree
             .root_node()
             .named_descendant_for_point_range(location, location);
+        // TODO: check if node type is reference
         match node {
             Some(node) => {
                 let label = node.utf8_text(text.as_bytes()).unwrap();
