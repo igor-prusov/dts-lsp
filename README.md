@@ -1,4 +1,6 @@
 # Language Server for Device Tree Source files
+![Build and Test workflow](https://github.com/igor-prusov/dts-lsp/actions/workflows/build.yml/badge.svg)
+
 An LSP for DTS files built on top of [tree-sitter-devicetree](https://github.com/joelspadin/tree-sitter-devicetree) grammar.
 ## Features
 For now the main goal is to support jumping around DTS labels. The following is a list of implemented and intended features:
