@@ -18,16 +18,15 @@ impl Data {
     }
 
     fn insert(&mut self, uri: &Url, text: String) {
-        match self.url_to_text.get(uri) {
-            Some(_) => return,
-            None => (),
+        if self.url_to_text.get(uri).is_some() {
+            return
         }
 
         self.url_to_text.insert(uri.clone(), text);
     }
 
     fn dump(&self) {
-        Logger::log(&format!("===DUMP==="));
+        Logger::log("===DUMP===");
         for uri in self.url_to_text.keys() {
             let mut file = File::open(uri.path()).unwrap();
             let mut s = String::new();
@@ -35,7 +34,7 @@ impl Data {
 
             Logger::log(&format!("{}", uri));
         }
-        Logger::log(&format!("=========="));
+        Logger::log("==========");
     }
 
     fn get_text(&self, uri: &Url) -> Option<String> {

@@ -9,7 +9,6 @@ use tree_sitter::Parser;
 use tree_sitter::Point;
 use tree_sitter::Query;
 use tree_sitter::QueryCursor;
-use tree_sitter_devicetree;
 
 mod file_depot;
 mod labels_depot;
@@ -32,7 +31,7 @@ impl Backend {
             file.read_to_string(&mut s).unwrap();
             s
         };
-        self.data.fd.insert(&uri, text.clone());
+        self.data.fd.insert(uri, text.clone());
 
         let mut parser = Parser::new();
         parser
@@ -72,7 +71,7 @@ impl Backend {
                 let range = node.range();
                 let pos = range.start_point;
                 let new_url = uri.join(label).unwrap();
-                self.data.ld.add_include(&uri, &new_url);
+                self.data.ld.add_include(uri, &new_url);
                 self.handle_file(&new_url, None);
                 Logger::log(&format!(
                     "INCLUDE<{}>: {}, {}",
@@ -96,7 +95,6 @@ impl Logger {
 
     fn log(text: &str) {
         let mut file = OpenOptions::new()
-            .write(true)
             .append(true)
             .open(Self::PATH)
             .unwrap();
@@ -172,33 +170,20 @@ impl LanguageServer for Backend {
             .set_language(tree_sitter_devicetree::language())
             .unwrap();
         let tree = parser.parse(&text, None).unwrap();
-        let node = tree
+        if let Some(node) = tree
             .root_node()
-            .named_descendant_for_point_range(location, location);
-        // TODO: check if node type is reference
-        self.data.ld.dump();
-        match node {
-            Some(node) => {
-                let label = node.utf8_text(text.as_bytes()).unwrap();
-                Logger::log(&format!(
-                    "definintion for node <{}>: {}",
-                    node.kind(),
-                    label
-                ));
+            .named_descendant_for_point_range(location, location)
+        {
+            let label = node.utf8_text(text.as_bytes()).unwrap();
 
-                if let Some(point) = self.data.ld.find_label(&uri, label) {
+            if let (Some(parent), Some(point)) =
+                (node.parent(), self.data.ld.find_label(&uri, label))
+            {
+                if parent.kind() == "reference" {
                     let pos = Location::new(point.uri, point.range);
                     return Ok(Some(GotoDefinitionResponse::Scalar(pos)));
                 }
-
-                /*
-                if let Some(point) = self.data.find_label(label) {
-                    let pos = Location::new(point.uri, point.range);
-                    return Ok(Some(GotoDefinitionResponse::Scalar(pos)));
-                }
-                */
             }
-            None => Logger::log(&format!("Node not found!",)),
         }
 
         Ok(None)
