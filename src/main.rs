@@ -1,10 +1,8 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
+use std::io::prelude::*;
 use std::io::Write;
-use std::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::Range;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use tree_sitter::Parser;
@@ -14,12 +12,77 @@ use tree_sitter::QueryCursor;
 use tree_sitter_devicetree;
 
 mod file_depot;
+mod labels_depot;
 
 use file_depot::FileDepot;
+use labels_depot::LabelsDepot;
 
 struct Backend {
     client: Client,
     data: Data,
+}
+
+impl Backend {
+    fn handle_file(&self, uri: &Url, text: Option<String>) {
+        let text = if let Some(x) = text {
+            x
+        } else {
+            let mut file = File::open(uri.path()).unwrap();
+            let mut s = String::new();
+            file.read_to_string(&mut s).unwrap();
+            s
+        };
+        self.data.fd.insert(&uri, text.clone());
+
+        let mut parser = Parser::new();
+        parser
+            .set_language(tree_sitter_devicetree::language())
+            .unwrap();
+        let tree = parser.parse(&text, None).unwrap();
+        let mut cursor = QueryCursor::new();
+
+        let q = Query::new(
+            tree_sitter_devicetree::language(),
+            "(node label: (identifier)@id)",
+        )
+        .unwrap();
+        let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
+        for m in matches {
+            let nodes = m.nodes_for_capture_index(0);
+            for node in nodes {
+                let label = node.utf8_text(text.as_bytes()).unwrap();
+                let range = node.range();
+                self.data.ld.add_label(label, uri, range);
+                let pos = range.start_point;
+                Logger::log(&format!("NODE<{}>: {:?}, {}", node.kind(), label, pos.row));
+            }
+        }
+
+        let q = Query::new(
+            tree_sitter_devicetree::language(),
+            "(preproc_include path: (string_literal)@id)",
+        )
+        .unwrap();
+        let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
+        for m in matches {
+            let nodes = m.nodes_for_capture_index(0);
+            for node in nodes {
+                let label = node.utf8_text(text.as_bytes()).unwrap();
+                let label = label.trim_matches('"');
+                let range = node.range();
+                let pos = range.start_point;
+                let new_url = uri.join(label).unwrap();
+                self.data.ld.add_include(&uri, &new_url);
+                self.handle_file(&new_url, None);
+                Logger::log(&format!(
+                    "INCLUDE<{}>: {}, {}",
+                    node.kind(),
+                    new_url,
+                    pos.row
+                ));
+            }
+        }
+    }
 }
 
 struct Logger {}
@@ -41,61 +104,16 @@ impl Logger {
     }
 }
 
-#[derive(Clone)]
-struct Symbol {
-    uri: Url,
-    range: Range,
-}
-
-impl Symbol {
-    fn new(uri: Url, range: tree_sitter::Range) -> Symbol {
-        let range = Range::new(
-            Position::new(
-                range.start_point.row as u32,
-                range.start_point.column as u32,
-            ),
-            Position::new(range.end_point.row as u32, range.end_point.column as u32),
-        );
-
-        Symbol { uri, range }
-    }
-}
-
 struct Data {
-    labels: Mutex<HashMap<String, Symbol>>,
     fd: FileDepot,
+    ld: LabelsDepot,
 }
 
 impl Data {
-    fn insert_label(&self, key: String, uri: &Url, range: tree_sitter::Range) {
-        let mut data = self.labels.lock().unwrap();
-        data.insert(key, Symbol::new(uri.clone(), range));
-    }
-
-    fn find_label(&self, key: &str) -> Option<Symbol> {
-        let data = self.labels.lock().unwrap();
-        match data.get(key) {
-            Some(x) => Some(x.clone()),
-            None => None,
-        }
-    }
-
-    /*
-    fn set_text(&self, s: &str) {
-        let mut data = self.text.lock().unwrap();
-        *data = s.to_string();
-    }
-
-    fn get_text(&self) -> String {
-        let s = self.text.lock().unwrap();
-        s.clone()
-    }
-    */
-
     fn new() -> Data {
         Data {
-            labels: Mutex::new(HashMap::new()),
             fd: FileDepot::new(),
+            ld: LabelsDepot::new(),
         }
     }
 }
@@ -132,55 +150,7 @@ impl LanguageServer for Backend {
         Logger::log(&msg);
 
         let text = params.text_document.text.as_str();
-        self.data.fd.insert(uri, Some(text.to_string()));
-
-        let mut parser = Parser::new();
-        parser
-            .set_language(tree_sitter_devicetree::language())
-            .unwrap();
-        let tree = parser.parse(text, None).unwrap();
-        let mut cursor = QueryCursor::new();
-
-        let q = Query::new(
-            tree_sitter_devicetree::language(),
-            "(node label: (identifier)@id)",
-        )
-        .unwrap();
-        let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
-        for m in matches {
-            let nodes = m.nodes_for_capture_index(0);
-            for node in nodes {
-                let label = node.utf8_text(text.as_bytes()).unwrap();
-                let range = node.range();
-                self.data.insert_label(label.to_string(), uri, range);
-                let pos = range.start_point;
-                Logger::log(&format!("NODE<{}>: {:?}, {}", node.kind(), label, pos.row));
-            }
-        }
-
-        let q = Query::new(
-            tree_sitter_devicetree::language(),
-            "(preproc_include path: (string_literal)@id)",
-        )
-        .unwrap();
-        let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
-        for m in matches {
-            let nodes = m.nodes_for_capture_index(0);
-            for node in nodes {
-                let label = node.utf8_text(text.as_bytes()).unwrap();
-                let label = label.trim_matches('"');
-                let range = node.range();
-                let pos = range.start_point;
-                let new_url = uri.join(label).unwrap();
-                self.data.fd.insert(&new_url, None);
-                Logger::log(&format!(
-                    "INCLUDE<{}>: {}, {}",
-                    node.kind(),
-                    new_url,
-                    pos.row
-                ));
-            }
-        }
+        self.handle_file(uri, Some(text.to_string()));
 
         self.data.fd.dump();
     }
@@ -206,6 +176,7 @@ impl LanguageServer for Backend {
             .root_node()
             .named_descendant_for_point_range(location, location);
         // TODO: check if node type is reference
+        self.data.ld.dump();
         match node {
             Some(node) => {
                 let label = node.utf8_text(text.as_bytes()).unwrap();
@@ -215,10 +186,17 @@ impl LanguageServer for Backend {
                     label
                 ));
 
+                if let Some(point) = self.data.ld.find_label(&uri, label) {
+                    let pos = Location::new(point.uri, point.range);
+                    return Ok(Some(GotoDefinitionResponse::Scalar(pos)));
+                }
+
+                /*
                 if let Some(point) = self.data.find_label(label) {
                     let pos = Location::new(point.uri, point.range);
                     return Ok(Some(GotoDefinitionResponse::Scalar(pos)));
                 }
+                */
             }
             None => Logger::log(&format!("Node not found!",)),
         }
