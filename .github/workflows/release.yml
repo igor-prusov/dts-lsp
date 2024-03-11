@@ -5,6 +5,9 @@ on:
    tags:
      # Regex for a version number such as 0.2.1
      - '*'
+permissions:
+  contents: write
+  
 env:
   CARGO_TERM_COLOR: always
 
