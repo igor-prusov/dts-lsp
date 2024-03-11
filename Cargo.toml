@@ -1,8 +1,15 @@
 [package]
 name = "dts-lsp"
 version = "0.1.0"
+authors = ["Igor Prusov <prusovigor@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "Language Server for Device Tree Source files"
+repository = "https://github.com/igor-prusov/dts-lsp"
+homepage = "https://github.com/igor-prusov/dts-lsp"
+documentation = "https://github.com/igor-prusov/dts-lsp"
+keywords = ["dts", "lsp"]
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
