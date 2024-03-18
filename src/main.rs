@@ -35,13 +35,13 @@ impl Backend {
 
         let mut parser = Parser::new();
         parser
-            .set_language(tree_sitter_devicetree::language())
+            .set_language(&tree_sitter_devicetree::language())
             .unwrap();
         let tree = parser.parse(&text, None).unwrap();
         let mut cursor = QueryCursor::new();
 
         let q = Query::new(
-            tree_sitter_devicetree::language(),
+            &tree_sitter_devicetree::language(),
             "(node label: (identifier)@id)",
         )
         .unwrap();
@@ -58,7 +58,7 @@ impl Backend {
         }
 
         let q = Query::new(
-            tree_sitter_devicetree::language(),
+            &tree_sitter_devicetree::language(),
             "(preproc_include path: (string_literal)@id)",
         )
         .unwrap();
@@ -167,7 +167,7 @@ impl LanguageServer for Backend {
         };
         let mut parser = Parser::new();
         parser
-            .set_language(tree_sitter_devicetree::language())
+            .set_language(&tree_sitter_devicetree::language())
             .unwrap();
         let tree = parser.parse(&text, None).unwrap();
         if let Some(node) = tree
