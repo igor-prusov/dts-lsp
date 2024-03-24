@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 use tower_lsp::lsp_types::Range;
 use tower_lsp::lsp_types::*;
-
-use crate::Logger;
+use tower_lsp::Client;
 
 #[derive(Clone)]
 pub struct Symbol {
@@ -43,15 +42,17 @@ impl Entry {
 
 struct Data {
     url_to_labels: HashMap<Url, Arc<Mutex<Entry>>>,
+    client: Client,
 }
 
 impl Data {
-    fn new() -> Data {
+    fn new(client: &Client) -> Data {
         Data {
             url_to_labels: HashMap::new(),
+            client: client.clone(),
         }
     }
-    fn add_label(&mut self, label: &str, uri: &Url, range: tree_sitter::Range) {
+    async fn add_label(&mut self, label: &str, uri: &Url, range: tree_sitter::Range) {
         let e = match self.url_to_labels.get(uri) {
             Some(x) => x.clone(),
             None => {
@@ -60,12 +61,12 @@ impl Data {
                 x
             }
         };
-        let mut e = e.lock().unwrap();
+        let mut e = e.lock().await;
         e.labels
             .insert(label.to_string(), Symbol::new(uri.clone(), range));
     }
 
-    fn add_include(&mut self, uri: &Url, include_uri: &Url) {
+    async fn add_include(&mut self, uri: &Url, include_uri: &Url) {
         let e = match self.url_to_labels.get(uri) {
             Some(x) => x.clone(),
             None => {
@@ -74,21 +75,23 @@ impl Data {
                 x
             }
         };
-        let mut e = e.lock().unwrap();
+        let mut e = e.lock().await;
         e.files.push(include_uri.clone())
     }
 
-    fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
+    async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
         let mut visited = HashSet::new();
         let mut to_visit = Vec::new();
 
         to_visit.push(uri.clone());
 
         while let Some(uri) = to_visit.pop() {
-            Logger::log(&format!("processing {}", uri));
+            self.client
+                .log_message(MessageType::INFO, &format!("processing {}", uri))
+                .await;
 
             if let Some(labels) = self.url_to_labels.get(&uri) {
-                let guard = labels.lock().unwrap();
+                let guard = labels.lock().await;
                 if let Some(s) = guard.labels.get(label) {
                     return Some(s.clone());
                 }
@@ -109,45 +112,59 @@ impl Data {
 
 pub struct LabelsDepot {
     data: Mutex<Data>,
+    client: Client,
 }
 
 impl LabelsDepot {
-    pub fn new() -> LabelsDepot {
+    pub fn new(client: Client) -> LabelsDepot {
         LabelsDepot {
-            data: Mutex::new(Data::new()),
+            data: Mutex::new(Data::new(&client)),
+            client,
         }
     }
 
-    pub fn add_label(&self, label: &str, uri: &Url, range: tree_sitter::Range) {
-        let mut data = self.data.lock().unwrap();
-        data.add_label(label, uri, range);
+    pub async fn add_label(&self, label: &str, uri: &Url, range: tree_sitter::Range) {
+        let mut data = self.data.lock().await;
+        data.add_label(label, uri, range).await;
     }
 
-    pub fn add_include(&self, uri: &Url, include_uri: &Url) {
-        let mut data = self.data.lock().unwrap();
-        data.add_include(uri, include_uri);
+    pub async fn add_include(&self, uri: &Url, include_uri: &Url) {
+        let mut data = self.data.lock().await;
+        data.add_include(uri, include_uri).await;
     }
 
-    pub fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
-        let data = self.data.lock().unwrap();
-        data.find_label(uri, label)
+    pub async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
+        let data = self.data.lock().await;
+        data.find_label(uri, label).await
     }
 
-    pub fn dump(&self) {
-        let data = self.data.lock().unwrap();
-        Logger::log("==== LD (labels) ====");
+    pub async fn dump(&self) {
+        let data = self.data.lock().await;
+        self.client
+            .log_message(MessageType::INFO, "==== LD (labels) ====")
+            .await;
         for (k, v) in &data.url_to_labels {
-            for label in v.lock().unwrap().labels.keys() {
-                Logger::log(&format!("url: {}: {}", k, label));
+            for label in v.lock().await.labels.keys() {
+                self.client
+                    .log_message(MessageType::INFO, &format!("url: {}: {}", k, label))
+                    .await;
             }
         }
-        Logger::log("=====================");
-        Logger::log("===== LD (files) ====");
+        self.client
+            .log_message(MessageType::INFO, "=====================")
+            .await;
+        self.client
+            .log_message(MessageType::INFO, "===== LD (files) ====")
+            .await;
         for (k, v) in &data.url_to_labels {
-            for f in &v.lock().unwrap().files {
-                Logger::log(&format!("url: {}: {}", k, f));
+            for f in &v.lock().await.files {
+                self.client
+                    .log_message(MessageType::INFO, &format!("url: {}: {}", k, f))
+                    .await;
             }
         }
-        Logger::log("=====================");
+        self.client
+            .log_message(MessageType::INFO, "=====================")
+            .await;
     }
 }
