@@ -44,6 +44,10 @@ impl Data {
             .await;
     }
 
+    fn exist(&self, uri: &Url) -> bool {
+        self.url_to_text.contains_key(uri)
+    }
+
     fn get_text(&self, uri: &Url) -> Option<String> {
         self.url_to_text.get(uri).cloned()
     }
@@ -71,5 +75,9 @@ impl FileDepot {
 
     pub async fn get_text(&self, uri: &Url) -> Option<String> {
         self.data.lock().await.get_text(uri)
+    }
+
+    pub async fn exist(&self, uri: &Url) -> bool {
+        self.data.lock().await.exist(uri)
     }
 }

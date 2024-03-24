@@ -1,3 +1,5 @@
+use std::fs::metadata;
+use std::fs::read_dir;
 use std::fs::File;
 use std::io::prelude::*;
 use tower_lsp::jsonrpc::Result;
@@ -107,6 +109,23 @@ impl Backend {
         self.process_labels(&tree, uri, &text).await;
         self.process_includes(&tree, uri, &text).await
     }
+
+    async fn open_neighbours(&self, uri: &Url) {
+        let d = uri.join(".").unwrap();
+        let d = d.path();
+        let files = read_dir(d).unwrap();
+        for f in files {
+            let p = f.unwrap().path();
+            if !metadata(&p).unwrap().is_file() {
+                continue;
+            }
+            let u = Url::from_file_path(p).unwrap();
+            if self.data.fd.exist(&u).await {
+                continue;
+            }
+            self.handle_file(&u, None).await;
+        }
+    }
 }
 
 struct Data {
@@ -164,6 +183,8 @@ impl LanguageServer for Backend {
 
         self.data.fd.dump().await;
         self.data.ld.dump().await;
+
+        self.open_neighbours(uri).await;
     }
 
     async fn goto_definition(

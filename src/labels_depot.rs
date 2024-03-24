@@ -131,6 +131,7 @@ impl LabelsDepot {
     pub async fn add_include(&self, uri: &Url, include_uri: &Url) {
         let mut data = self.data.lock().await;
         data.add_include(uri, include_uri).await;
+        data.add_include(include_uri, uri).await;
     }
 
     pub async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
