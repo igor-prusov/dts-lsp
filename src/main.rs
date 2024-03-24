@@ -49,7 +49,10 @@ impl Backend {
         let mut cursor = QueryCursor::new();
         let q = Query::new(
             &tree_sitter_devicetree::language(),
-            "(preproc_include path: (string_literal)@id)",
+            "[
+            (dtsi_include path: (string_literal)@id)
+            (preproc_include path: (string_literal)@id)
+            ]",
         )
         .unwrap();
         let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
