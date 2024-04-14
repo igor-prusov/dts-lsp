@@ -1,82 +1,41 @@
+use crate::utils::convert_range;
+use crate::utils::Symbol;
+use crate::FileDepot;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_lsp::lsp_types::Range;
 use tower_lsp::lsp_types::*;
 use tower_lsp::Client;
 
-#[derive(Clone)]
-pub struct Symbol {
-    pub uri: Url,
-    pub range: Range,
-}
-
-impl Symbol {
-    pub fn new(uri: Url, range: tree_sitter::Range) -> Symbol {
-        let range = Range::new(
-            Position::new(
-                range.start_point.row as u32,
-                range.start_point.column as u32,
-            ),
-            Position::new(range.end_point.row as u32, range.end_point.column as u32),
-        );
-
-        Symbol { uri, range }
-    }
-}
-
-struct Entry {
-    labels: HashMap<String, Symbol>,
-    files: Vec<Url>,
-}
-
-impl Entry {
-    fn new() -> Entry {
-        Entry {
-            labels: HashMap::new(),
-            files: Vec::new(),
-        }
-    }
+#[derive(Eq, Hash, PartialEq)]
+struct Label {
+    uri: Url,
+    name: String,
 }
 
 struct Data {
-    url_to_labels: HashMap<Url, Arc<Mutex<Entry>>>,
+    label_to_symbol: HashMap<Label, Range>,
+    fd: FileDepot,
     client: Client,
 }
 
 impl Data {
-    fn new(client: &Client) -> Data {
+    fn new(client: &Client, fd: &FileDepot) -> Data {
         Data {
-            url_to_labels: HashMap::new(),
+            label_to_symbol: HashMap::new(),
             client: client.clone(),
+            fd: fd.clone(),
         }
     }
     async fn add_label(&mut self, label: &str, uri: &Url, range: tree_sitter::Range) {
-        let e = match self.url_to_labels.get(uri) {
-            Some(x) => x.clone(),
-            None => {
-                let x = Arc::new(Mutex::new(Entry::new()));
-                self.url_to_labels.insert(uri.clone(), x.clone());
-                x
-            }
-        };
-        let mut e = e.lock().await;
-        e.labels
-            .insert(label.to_string(), Symbol::new(uri.clone(), range));
-    }
-
-    async fn add_include(&mut self, uri: &Url, include_uri: &Url) {
-        let e = match self.url_to_labels.get(uri) {
-            Some(x) => x.clone(),
-            None => {
-                let x = Arc::new(Mutex::new(Entry::new()));
-                self.url_to_labels.insert(uri.clone(), x.clone());
-                x
-            }
-        };
-        let mut e = e.lock().await;
-        e.files.push(include_uri.clone())
+        self.label_to_symbol.insert(
+            Label {
+                uri: uri.clone(),
+                name: label.to_string(),
+            },
+            convert_range(&range),
+        );
     }
 
     async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
@@ -90,13 +49,17 @@ impl Data {
                 .log_message(MessageType::INFO, &format!("processing {}", uri))
                 .await;
 
-            if let Some(labels) = self.url_to_labels.get(&uri) {
-                let guard = labels.lock().await;
-                if let Some(s) = guard.labels.get(label) {
-                    return Some(s.clone());
-                }
+            if let Some(range) = self.label_to_symbol.get(&Label {
+                name: label.to_string(),
+                uri: uri.clone(),
+            }) {
+                //let range = convert_range(&range);
+                let s = Symbol::new(uri, *range);
+                return Some(s);
+            }
 
-                for f in &guard.files {
+            if let Some(x) = self.fd.get_neighbours(&uri).await {
+                for f in x.lock().await.iter() {
                     if !visited.contains(f) {
                         to_visit.push(f.clone())
                     }
@@ -116,9 +79,9 @@ pub struct LabelsDepot {
 }
 
 impl LabelsDepot {
-    pub fn new(client: Client) -> LabelsDepot {
+    pub fn new(client: Client, fd: FileDepot) -> LabelsDepot {
         LabelsDepot {
-            data: Mutex::new(Data::new(&client)),
+            data: Mutex::new(Data::new(&client, &fd)),
             client,
         }
     }
@@ -126,12 +89,6 @@ impl LabelsDepot {
     pub async fn add_label(&self, label: &str, uri: &Url, range: tree_sitter::Range) {
         let mut data = self.data.lock().await;
         data.add_label(label, uri, range).await;
-    }
-
-    pub async fn add_include(&self, uri: &Url, include_uri: &Url) {
-        let mut data = self.data.lock().await;
-        data.add_include(uri, include_uri).await;
-        data.add_include(include_uri, uri).await;
     }
 
     pub async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
@@ -142,30 +99,15 @@ impl LabelsDepot {
     pub async fn dump(&self) {
         let data = self.data.lock().await;
         self.client
-            .log_message(MessageType::INFO, "==== LD (labels) ====")
+            .log_message(MessageType::INFO, "====== (labels) ======")
             .await;
-        for (k, v) in &data.url_to_labels {
-            for label in v.lock().await.labels.keys() {
-                self.client
-                    .log_message(MessageType::INFO, &format!("url: {}: {}", k, label))
-                    .await;
-            }
+        for k in data.label_to_symbol.keys() {
+            self.client
+                .log_message(MessageType::INFO, &format!("url: {}: {}", k.uri, k.name))
+                .await;
         }
         self.client
-            .log_message(MessageType::INFO, "=====================")
-            .await;
-        self.client
-            .log_message(MessageType::INFO, "===== LD (files) ====")
-            .await;
-        for (k, v) in &data.url_to_labels {
-            for f in &v.lock().await.files {
-                self.client
-                    .log_message(MessageType::INFO, &format!("url: {}: {}", k, f))
-                    .await;
-            }
-        }
-        self.client
-            .log_message(MessageType::INFO, "=====================")
+            .log_message(MessageType::INFO, "======================")
             .await;
     }
 }
