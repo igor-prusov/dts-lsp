@@ -225,9 +225,11 @@ impl LanguageServer for Backend {
         &self,
         input: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
+        // TODO: Handle files, that look like arch/arc/boot/dts/skeleton.dtsi
+        // i.e. there is dtsi file with labels, that are expected to be in files
+        // including skeleton.dtsi
         let location = input.text_document_position_params.position;
         let location = Point::new(location.line as usize, location.character as usize);
-        //let text = self.data.get_text();
         let uri = input.text_document_position_params.text_document.uri;
         let text = match self.data.fd.get_text(&uri).await {
             Some(text) => text,
@@ -286,9 +288,6 @@ impl LanguageServer for Backend {
                         res.push(Location::new(x.uri, x.range))
                     }
                     return Ok(Some(res));
-
-                    //let pos = Location::new(point.uri, point.range);
-                    //return Ok(Some(GotoDefinitionResponse::Scalar(pos)));
                 }
             }
         }

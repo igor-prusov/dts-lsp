@@ -53,7 +53,6 @@ impl Data {
                 name: label.to_string(),
                 uri: uri.clone(),
             }) {
-                //let range = convert_range(&range);
                 let s = Symbol::new(uri, *range);
                 return Some(s);
             }

@@ -30,7 +30,7 @@ impl Reference {
 struct Data {
     reference_to_symbols: HashMap<Reference, Vec<Range>>,
     fd: FileDepot,
-    client: Client,
+    _client: Client,
 }
 
 impl Data {
@@ -38,7 +38,7 @@ impl Data {
         Data {
             reference_to_symbols: HashMap::new(),
             fd: fd.clone(),
-            client: client.clone(),
+            _client: client.clone(),
         }
     }
 
@@ -59,18 +59,6 @@ impl Data {
         let mut to_visit = vec![uri.clone()];
         let mut visited = HashSet::new();
         let mut res = Vec::new();
-        /* TODO: Must keep direction in includes graph, otherwise this works wrong:
-         * a.dts:
-         *      #include <c.dtsi>
-         *
-         *      foo: node {};
-         * b.dts:
-         *      #include <c.dtsi>
-         *
-         *      foo: other_node {};
-         *
-         * Find reference will consider those as a single graph.
-         */
         let v = self.fd.get_component(uri).await;
         for f in v.iter() {
             if !visited.contains(f) {
@@ -80,21 +68,9 @@ impl Data {
 
         while let Some(uri) = to_visit.pop() {
             if let Some(v) = self.reference_to_symbols.get(&Reference::new(&uri, name)) {
-                self.client
-                    .log_message(MessageType::INFO, format!("KEK: {:?}", v))
-                    .await;
                 res.extend(v.iter().map(|x| Symbol::new(uri.clone(), *x)));
             }
 
-            /*
-            if let Some(x) = self.fd.get_neighbours(&uri).await {
-                for f in x.lock().await.iter() {
-                    if !visited.contains(f) {
-                        to_visit.push(f.clone())
-                    }
-                }
-            }
-            */
             visited.insert(uri);
         }
         res
@@ -103,14 +79,14 @@ impl Data {
 
 pub struct ReferencesDepot {
     data: Mutex<Data>,
-    client: Client,
+    _client: Client,
 }
 
 impl ReferencesDepot {
     pub fn new(client: Client, fd: FileDepot) -> ReferencesDepot {
         ReferencesDepot {
             data: Mutex::new(Data::new(&client, &fd)),
-            client,
+            _client: client,
         }
     }
 

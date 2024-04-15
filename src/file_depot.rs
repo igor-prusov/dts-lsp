@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_lsp::lsp_types::*;
@@ -166,10 +164,6 @@ impl Data {
             .log_message(MessageType::INFO, "===FILES===")
             .await;
         for uri in self.url_to_text.keys() {
-            let mut file = File::open(uri.path()).unwrap();
-            let mut s = String::new();
-            file.read_to_string(&mut s).unwrap();
-
             self.client
                 .log_message(MessageType::INFO, &format!("{}", uri))
                 .await;
