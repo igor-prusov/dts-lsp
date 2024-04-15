@@ -5,7 +5,8 @@ An LSP for DTS files built on top of [tree-sitter-devicetree](https://github.com
 ## Features
 For now the main goal is to support jumping around DTS labels. The following is a list of implemented and intended features:
 - [x] Go to label definition
-- [ ] Find references to label
+    - [ ] Handle complicated cases with multiple definitions, like arch/arc/boot/dts/skeleton.dtsi in Linux
+- [x] Find references to label
 - [ ] Handle editor buffer changes
 
 ## Installation
