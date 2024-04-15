@@ -13,9 +13,12 @@ use tree_sitter::Tree;
 
 mod file_depot;
 mod labels_depot;
+mod references_depot;
+mod utils;
 
 use file_depot::FileDepot;
 use labels_depot::LabelsDepot;
+use references_depot::ReferencesDepot;
 
 struct Backend {
     client: Client,
@@ -70,7 +73,6 @@ impl Backend {
                 let pos = range.start_point;
                 let new_url = uri.join(label).unwrap();
                 v.push(new_url.clone());
-                //self.data.ld.add_include(uri, &new_url).await;
                 includes.push((uri, new_url.clone()));
                 logs.push(format!(
                     "INCLUDE<{}>: {}, {}",
@@ -84,9 +86,36 @@ impl Backend {
             self.client.log_message(MessageType::INFO, &msg).await;
         }
         for (uri, new_url) in includes {
-            self.data.ld.add_include(uri, &new_url).await;
+            self.data.fd.add_include(uri, &new_url).await;
         }
         v
+    }
+
+    async fn process_references(&self, tree: &Tree, uri: &Url, text: &str) {
+        let mut cursor = QueryCursor::new();
+
+        let q = Query::new(
+            &tree_sitter_devicetree::language(),
+            "(reference label: (identifier)@id)",
+        )
+        .unwrap();
+        let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
+        let mut references = Vec::new();
+        for m in matches {
+            let nodes = m.nodes_for_capture_index(0);
+            for node in nodes {
+                let label = node.utf8_text(text.as_bytes()).unwrap();
+                let range = node.range();
+                references.push((label, uri, range));
+            }
+        }
+
+        for (label, uri, range) in references {
+            self.client
+                .log_message(MessageType::INFO, format!("LABEL = {label}"))
+                .await;
+            self.data.rd.add_reference(label, uri, range).await;
+        }
     }
 
     async fn handle_file(&self, uri: &Url, text: Option<String>) -> Vec<Url> {
@@ -107,6 +136,7 @@ impl Backend {
         let tree = parser.parse(&text, None).unwrap();
 
         self.process_labels(&tree, uri, &text).await;
+        self.process_references(&tree, uri, &text).await;
         self.process_includes(&tree, uri, &text).await
     }
 
@@ -131,13 +161,16 @@ impl Backend {
 struct Data {
     fd: FileDepot,
     ld: LabelsDepot,
+    rd: ReferencesDepot,
 }
 
 impl Data {
     fn new(client: &Client) -> Data {
+        let fd = FileDepot::new(client.clone());
         Data {
-            fd: FileDepot::new(client.clone()),
-            ld: LabelsDepot::new(client.clone()),
+            ld: LabelsDepot::new(client.clone(), fd.clone()),
+            rd: ReferencesDepot::new(client.clone(), fd.clone()),
+            fd,
         }
     }
 }
@@ -151,6 +184,7 @@ impl LanguageServer for Backend {
                     TextDocumentSyncKind::FULL,
                 )),
                 definition_provider: Some(OneOf::Left(true)),
+                references_provider: Some(OneOf::Left(true)),
                 ..ServerCapabilities::default()
             },
             ..Default::default()
@@ -191,9 +225,11 @@ impl LanguageServer for Backend {
         &self,
         input: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
+        // TODO: Handle files, that look like arch/arc/boot/dts/skeleton.dtsi
+        // i.e. there is dtsi file with labels, that are expected to be in files
+        // including skeleton.dtsi
         let location = input.text_document_position_params.position;
         let location = Point::new(location.line as usize, location.character as usize);
-        //let text = self.data.get_text();
         let uri = input.text_document_position_params.text_document.uri;
         let text = match self.data.fd.get_text(&uri).await {
             Some(text) => text,
@@ -220,6 +256,41 @@ impl LanguageServer for Backend {
             }
         }
 
+        Ok(None)
+    }
+
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let location = params.text_document_position.position;
+        let location = Point::new(location.line as usize, location.character as usize);
+        let uri = params.text_document_position.text_document.uri;
+        let text = match self.data.fd.get_text(&uri).await {
+            Some(text) => text,
+            None => return Ok(None),
+        };
+        let mut parser = Parser::new();
+        parser
+            .set_language(&tree_sitter_devicetree::language())
+            .unwrap();
+        let tree = parser.parse(&text, None).unwrap();
+        if let Some(node) = tree
+            .root_node()
+            .named_descendant_for_point_range(location, location)
+        {
+            let label = node.utf8_text(text.as_bytes()).unwrap();
+
+            if let (Some(parent), v) = (
+                node.parent(),
+                self.data.rd.find_references(&uri, label).await,
+            ) {
+                if parent.kind() == "node" {
+                    let mut res = Vec::new();
+                    for x in v {
+                        res.push(Location::new(x.uri, x.range))
+                    }
+                    return Ok(Some(res));
+                }
+            }
+        }
         Ok(None)
     }
 
