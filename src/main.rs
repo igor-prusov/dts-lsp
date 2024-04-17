@@ -124,7 +124,11 @@ impl Backend {
         } else {
             let mut file = File::open(uri.path()).unwrap();
             let mut s = String::new();
-            file.read_to_string(&mut s).unwrap();
+            match file.read_to_string(&mut s) {
+                Ok(_) => {},
+                Err(e) => {self.client.log_message(MessageType::WARNING, format!("{}: {}", uri , e.kind())).await},
+
+            };
             s
         };
         self.data.fd.insert(uri, text.clone()).await;
@@ -150,6 +154,9 @@ impl Backend {
                 continue;
             }
             let u = Url::from_file_path(p).unwrap();
+            if !u.path().ends_with(".dts") && !u.path().ends_with(".dtsi") {
+                continue;
+            }
             if self.data.fd.exist(&u).await {
                 continue;
             }
