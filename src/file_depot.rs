@@ -60,9 +60,6 @@ impl Data {
 
     async fn get_component(&self, uri: &Url) -> Vec<Url> {
         // Process includes
-        self.client
-            .log_message(MessageType::INFO, format!("get_component in {uri}"))
-            .await;
         let mut to_visit = vec![uri.clone()];
         let mut visited = HashSet::new();
         let mut res: Vec<Url> = Vec::new();
@@ -71,9 +68,6 @@ impl Data {
                 let x = e.lock().await.clone();
                 for f in x.iter() {
                     if !visited.contains(f) {
-                        self.client
-                            .log_message(MessageType::INFO, format!("0. Search in {f}"))
-                            .await;
                         to_visit.push(f.clone());
                         res.push(f.clone());
                     }
@@ -89,9 +83,6 @@ impl Data {
             let x = e.lock().await.clone();
             for f in x.iter() {
                 if !visited.contains(f) {
-                    self.client
-                        .log_message(MessageType::INFO, format!("1. Search in {f}"))
-                        .await;
                     to_visit.push(f.clone());
                     visited.insert(f.clone());
                     res.push(f.clone());
@@ -103,9 +94,6 @@ impl Data {
                 let x = e.lock().await.clone();
                 for f in x.iter() {
                     if !visited.contains(f) {
-                        self.client
-                            .log_message(MessageType::INFO, format!("2. Search in {f}"))
-                            .await;
                         to_visit.push(f.clone());
                         visited.insert(f.clone());
                         res.push(f.clone());
@@ -116,9 +104,6 @@ impl Data {
                 let x = e.lock().await.clone();
                 for f in x.iter() {
                     if !visited.contains(f) {
-                        self.client
-                            .log_message(MessageType::INFO, format!("3. Search in {f}"))
-                            .await;
                         to_visit.push(f.clone());
                         visited.insert(f.clone());
                         res.push(f.clone());
