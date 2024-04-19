@@ -33,54 +33,29 @@ impl Data {
     }
 
     async fn add_include(&mut self, uri: &Url, include_uri: &Url) {
-        let e = match self.url_to_neighbours.get(uri) {
-            Some(x) => x.clone(),
-            None => {
-                let x = Arc::new(Mutex::new(Vec::new()));
-                self.url_to_neighbours.insert(uri.clone(), x.clone());
-                x
-            }
-        };
+        let e = self.url_to_neighbours.entry(uri.clone()).or_default();
+        {
+            let mut e = e.lock().await;
+            e.push(include_uri.clone());
+        }
 
-        let mut e = e.lock().await;
-        e.push(include_uri.clone());
+        let e = self.url_to_neighbours.entry(include_uri.clone()).or_default();
+        {
+            let mut e = e.lock().await;
+            e.push(uri.clone());
+        }
 
-        let e = match self.url_to_neighbours.get(include_uri) {
-            Some(x) => x.clone(),
-            None => {
-                let x = Arc::new(Mutex::new(Vec::new()));
-                self.url_to_neighbours
-                    .insert(include_uri.clone(), x.clone());
-                x
-            }
-        };
+        let e = self.url_includes.entry(uri.clone()).or_default();
+        {
+            let mut e = e.lock().await;
+            e.push(include_uri.clone());
+        }
 
-        let mut e = e.lock().await;
-        e.push(uri.clone());
-
-        let e = match self.url_includes.get(uri) {
-            Some(x) => x.clone(),
-            None => {
-                let x = Arc::new(Mutex::new(Vec::new()));
-                self.url_includes.insert(uri.clone(), x.clone());
-                x
-            }
-        };
-
-        let mut e = e.lock().await;
-        e.push(include_uri.clone());
-
-        let e = match self.url_included_by.get(include_uri) {
-            Some(x) => x.clone(),
-            None => {
-                let x = Arc::new(Mutex::new(Vec::new()));
-                self.url_included_by.insert(include_uri.clone(), x.clone());
-                x
-            }
-        };
-
-        let mut e = e.lock().await;
-        e.push(uri.clone());
+        let e = self.url_included_by.entry(include_uri.clone()).or_default();
+        {
+            let mut e = e.lock().await;
+            e.push(uri.clone());
+        }
     }
 
     async fn get_component(&self, uri: &Url) -> Vec<Url> {
