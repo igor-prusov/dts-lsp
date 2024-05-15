@@ -125,9 +125,12 @@ impl Backend {
             let mut file = File::open(uri.path()).unwrap();
             let mut s = String::new();
             match file.read_to_string(&mut s) {
-                Ok(_) => {},
-                Err(e) => {self.client.log_message(MessageType::WARNING, format!("{}: {}", uri , e.kind())).await},
-
+                Ok(_) => {}
+                Err(e) => {
+                    self.client
+                        .log_message(MessageType::WARNING, format!("{}: {}", uri, e.kind()))
+                        .await
+                }
             };
             s
         };

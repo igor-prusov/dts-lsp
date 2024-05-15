@@ -39,7 +39,10 @@ impl Data {
             e.push(include_uri.clone());
         }
 
-        let e = self.url_to_neighbours.entry(include_uri.clone()).or_default();
+        let e = self
+            .url_to_neighbours
+            .entry(include_uri.clone())
+            .or_default();
         {
             let mut e = e.lock().await;
             e.push(uri.clone());
