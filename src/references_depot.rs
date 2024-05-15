@@ -5,7 +5,7 @@ use crate::FileDepot;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use tokio::sync::Mutex;
-use tower_lsp::lsp_types::*;
+use tower_lsp::lsp_types::{Range, Url};
 /*
  * 1. Add all references to map Reference (similar to Label) -> Vec[Range],
  * 2. Find references: Look-up label in all connected files
@@ -60,9 +60,9 @@ impl Data {
         let mut visited = HashSet::new();
         let mut res = Vec::new();
         let v = self.fd.get_component(uri).await;
-        for f in v.iter() {
+        for f in &v {
             if !visited.contains(f) {
-                to_visit.push(f.clone())
+                to_visit.push(f.clone());
             }
         }
 
@@ -83,9 +83,9 @@ pub struct ReferencesDepot {
 }
 
 impl ReferencesDepot {
-    pub fn new(logger: Logger, fd: FileDepot) -> ReferencesDepot {
+    pub fn new(logger: Logger, fd: &FileDepot) -> ReferencesDepot {
         ReferencesDepot {
-            data: Mutex::new(Data::new(&logger, &fd)),
+            data: Mutex::new(Data::new(&logger, fd)),
             _logger: logger,
         }
     }

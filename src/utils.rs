@@ -1,4 +1,4 @@
-use tower_lsp::lsp_types::*;
+use tower_lsp::lsp_types::{Position, Range, Url};
 
 #[derive(Clone)]
 pub struct Symbol {
@@ -15,9 +15,12 @@ impl Symbol {
 pub fn convert_range(range: &tree_sitter::Range) -> Range {
     Range::new(
         Position::new(
-            range.start_point.row as u32,
-            range.start_point.column as u32,
+            u32::try_from(range.start_point.row).unwrap(),
+            u32::try_from(range.start_point.column).unwrap(),
         ),
-        Position::new(range.end_point.row as u32, range.end_point.column as u32),
+        Position::new(
+            u32::try_from(range.end_point.row).unwrap(),
+            u32::try_from(range.end_point.column).unwrap(),
+        ),
     )
 }

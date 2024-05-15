@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tower_lsp::lsp_types::*;
+use tower_lsp::lsp_types::{MessageType, Url};
 
 struct Data {
     url_to_text: HashMap<Url, String>,
@@ -25,7 +25,7 @@ impl Data {
     }
 
     fn insert(&mut self, uri: &Url, text: String) {
-        if self.url_to_text.get(uri).is_some() {
+        if self.url_to_text.contains_key(uri) {
             return;
         }
 
@@ -70,7 +70,7 @@ impl Data {
         while let Some(uri) = to_visit.pop() {
             if let Some(e) = self.url_includes.get(&uri) {
                 let x = e.lock().await.clone();
-                for f in x.iter() {
+                for f in &x {
                     if !visited.contains(f) {
                         to_visit.push(f.clone());
                         res.push(f.clone());
@@ -86,7 +86,7 @@ impl Data {
         //let mut visited = HashSet::new();
         if let Some(e) = self.url_included_by.get(uri) {
             let x = e.lock().await.clone();
-            for f in x.iter() {
+            for f in &x {
                 if !visited.contains(f) {
                     to_visit.push(f.clone());
                     visited.insert(f.clone());
@@ -97,7 +97,7 @@ impl Data {
         while let Some(uri) = to_visit.pop() {
             if let Some(e) = self.url_includes.get(&uri) {
                 let x = e.lock().await.clone();
-                for f in x.iter() {
+                for f in &x {
                     if !visited.contains(f) {
                         to_visit.push(f.clone());
                         visited.insert(f.clone());
@@ -107,7 +107,7 @@ impl Data {
             }
             if let Some(e) = self.url_included_by.get(&uri) {
                 let x = e.lock().await.clone();
-                for f in x.iter() {
+                for f in &x {
                     if !visited.contains(f) {
                         to_visit.push(f.clone());
                         visited.insert(f.clone());
@@ -130,7 +130,7 @@ impl Data {
             .await;
         for uri in self.url_to_text.keys() {
             self.logger
-                .log_message(MessageType::INFO, &format!("{}", uri))
+                .log_message(MessageType::INFO, &format!("{uri}"))
                 .await;
         }
         self.logger
@@ -139,7 +139,7 @@ impl Data {
         for (k, v) in &self.url_to_neighbours {
             for f in v.lock().await.iter() {
                 self.logger
-                    .log_message(MessageType::INFO, &format!("url: {}: {}", k, f))
+                    .log_message(MessageType::INFO, &format!("url: {k}: {f}"))
                     .await;
             }
         }
@@ -171,7 +171,7 @@ impl FileDepot {
 
     pub async fn insert(&self, uri: &Url, text: String) {
         let mut data = self.data.lock().await;
-        data.insert(uri, text)
+        data.insert(uri, text);
     }
 
     pub async fn dump(&self) {

@@ -5,8 +5,7 @@ use crate::FileDepot;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use tokio::sync::Mutex;
-use tower_lsp::lsp_types::Range;
-use tower_lsp::lsp_types::*;
+use tower_lsp::lsp_types::{MessageType, Range, Url};
 
 #[derive(Eq, Hash, PartialEq)]
 struct Label {
@@ -28,7 +27,7 @@ impl Data {
             fd: fd.clone(),
         }
     }
-    async fn add_label(&mut self, label: &str, uri: &Url, range: tree_sitter::Range) {
+    fn add_label(&mut self, label: &str, uri: &Url, range: tree_sitter::Range) {
         self.label_to_symbol.insert(
             Label {
                 uri: uri.clone(),
@@ -46,7 +45,7 @@ impl Data {
 
         while let Some(uri) = to_visit.pop() {
             self.logger
-                .log_message(MessageType::INFO, &format!("processing {}", uri))
+                .log_message(MessageType::INFO, &format!("processing {uri}"))
                 .await;
 
             if let Some(range) = self.label_to_symbol.get(&Label {
@@ -60,7 +59,7 @@ impl Data {
             if let Some(x) = self.fd.get_neighbours(&uri).await {
                 for f in x.lock().await.iter() {
                     if !visited.contains(f) {
-                        to_visit.push(f.clone())
+                        to_visit.push(f.clone());
                     }
                 }
             }
@@ -78,16 +77,16 @@ pub struct LabelsDepot {
 }
 
 impl LabelsDepot {
-    pub fn new(logger: Logger, fd: FileDepot) -> LabelsDepot {
+    pub fn new(logger: Logger, fd: &FileDepot) -> LabelsDepot {
         LabelsDepot {
-            data: Mutex::new(Data::new(&logger, &fd)),
+            data: Mutex::new(Data::new(&logger, fd)),
             logger,
         }
     }
 
     pub async fn add_label(&self, label: &str, uri: &Url, range: tree_sitter::Range) {
         let mut data = self.data.lock().await;
-        data.add_label(label, uri, range).await;
+        data.add_label(label, uri, range);
     }
 
     pub async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
