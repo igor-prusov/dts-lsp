@@ -58,6 +58,7 @@ impl Data {
         }
     }
 
+    //TODO: -> HashSet<Url> or Make sure no repetition
     async fn get_component(&self, uri: &Url) -> Vec<Url> {
         // Process includes
         let mut to_visit = vec![uri.clone()];
@@ -70,6 +71,7 @@ impl Data {
                     if !visited.contains(f) {
                         to_visit.push(f.clone());
                         res.push(f.clone());
+                        visited.insert(f.clone());
                     }
                 }
             }
