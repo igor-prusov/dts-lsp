@@ -1,3 +1,4 @@
+use crate::logger::Logger;
 use crate::utils::convert_range;
 use crate::utils::Symbol;
 use crate::FileDepot;
@@ -5,7 +6,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use tokio::sync::Mutex;
 use tower_lsp::lsp_types::*;
-use tower_lsp::Client;
 /*
  * 1. Add all references to map Reference (similar to Label) -> Vec[Range],
  * 2. Find references: Look-up label in all connected files
@@ -30,15 +30,15 @@ impl Reference {
 struct Data {
     reference_to_symbols: HashMap<Reference, Vec<Range>>,
     fd: FileDepot,
-    _client: Client,
+    _logger: Logger,
 }
 
 impl Data {
-    fn new(client: &Client, fd: &FileDepot) -> Data {
+    fn new(logger: &Logger, fd: &FileDepot) -> Data {
         Data {
             reference_to_symbols: HashMap::new(),
             fd: fd.clone(),
-            _client: client.clone(),
+            _logger: logger.clone(),
         }
     }
 
@@ -79,14 +79,14 @@ impl Data {
 
 pub struct ReferencesDepot {
     data: Mutex<Data>,
-    _client: Client,
+    _logger: Logger,
 }
 
 impl ReferencesDepot {
-    pub fn new(client: Client, fd: FileDepot) -> ReferencesDepot {
+    pub fn new(logger: Logger, fd: FileDepot) -> ReferencesDepot {
         ReferencesDepot {
-            data: Mutex::new(Data::new(&client, &fd)),
-            _client: client,
+            data: Mutex::new(Data::new(&logger, &fd)),
+            _logger: logger,
         }
     }
 

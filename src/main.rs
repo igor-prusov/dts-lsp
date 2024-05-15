@@ -13,16 +13,18 @@ use tree_sitter::Tree;
 
 mod file_depot;
 mod labels_depot;
+mod logger;
 mod references_depot;
 mod utils;
 
 use file_depot::FileDepot;
 use labels_depot::LabelsDepot;
+use logger::Logger;
 use references_depot::ReferencesDepot;
 
 struct Backend {
-    client: Client,
     data: Data,
+    logger: Logger,
 }
 
 impl Backend {
@@ -83,7 +85,7 @@ impl Backend {
             }
         }
         for msg in logs {
-            self.client.log_message(MessageType::INFO, &msg).await;
+            self.logger.log_message(MessageType::INFO, &msg).await;
         }
         for (uri, new_url) in includes {
             self.data.fd.add_include(uri, &new_url).await;
@@ -111,7 +113,7 @@ impl Backend {
         }
 
         for (label, uri, range) in references {
-            self.client
+            self.logger
                 .log_message(MessageType::INFO, format!("LABEL = {label}"))
                 .await;
             self.data.rd.add_reference(label, uri, range).await;
@@ -127,7 +129,7 @@ impl Backend {
             match file.read_to_string(&mut s) {
                 Ok(_) => {}
                 Err(e) => {
-                    self.client
+                    self.logger
                         .log_message(MessageType::WARNING, format!("{}: {}", uri, e.kind()))
                         .await
                 }
@@ -176,10 +178,11 @@ struct Data {
 
 impl Data {
     fn new(client: &Client) -> Data {
-        let fd = FileDepot::new(client.clone());
+        let logger = logger::Logger::Lsp(client.clone());
+        let fd = FileDepot::new(logger.clone());
         Data {
-            ld: LabelsDepot::new(client.clone(), fd.clone()),
-            rd: ReferencesDepot::new(client.clone(), fd.clone()),
+            ld: LabelsDepot::new(logger.clone(), fd.clone()),
+            rd: ReferencesDepot::new(logger.clone(), fd.clone()),
             fd,
         }
     }
@@ -202,7 +205,7 @@ impl LanguageServer for Backend {
     }
 
     async fn initialized(&self, _: InitializedParams) {
-        self.client
+        self.logger
             .log_message(MessageType::INFO, "server initialized!")
             .await;
     }
@@ -215,7 +218,7 @@ impl LanguageServer for Backend {
         let uri = &params.text_document.uri;
 
         let msg = format!("Open file: {}", uri);
-        self.client.log_message(MessageType::INFO, msg).await;
+        self.logger.log_message(MessageType::INFO, msg).await;
 
         let text = params.text_document.text.as_str();
         let mut includes = self.handle_file(uri, Some(text.to_string())).await;
@@ -306,17 +309,17 @@ impl LanguageServer for Backend {
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
         let msg = format!("Close file: {}", params.text_document.uri);
-        self.client.log_message(MessageType::INFO, msg).await;
+        self.logger.log_message(MessageType::INFO, msg).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let msg = format!("Change file: {}", params.text_document.uri);
-        self.client.log_message(MessageType::INFO, msg).await;
+        self.logger.log_message(MessageType::INFO, msg).await;
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
         let msg = format!("Save file: {}", params.text_document.uri);
-        self.client.log_message(MessageType::INFO, msg).await;
+        self.logger.log_message(MessageType::INFO, msg).await;
     }
 }
 
@@ -327,7 +330,7 @@ async fn main() {
 
     let (service, socket) = LspService::new(|client| Backend {
         data: Data::new(&client),
-        client,
+        logger: Logger::Lsp(client),
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
