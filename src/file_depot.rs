@@ -1,26 +1,26 @@
+use crate::logger::Logger;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_lsp::lsp_types::*;
-use tower_lsp::Client;
 
 struct Data {
     url_to_text: HashMap<Url, String>,
     url_to_neighbours: HashMap<Url, Arc<Mutex<Vec<Url>>>>,
     url_includes: HashMap<Url, Arc<Mutex<Vec<Url>>>>,
     url_included_by: HashMap<Url, Arc<Mutex<Vec<Url>>>>,
-    client: Client,
+    logger: Logger,
 }
 
 impl Data {
-    fn new(client: Client) -> Data {
+    fn new(logger: Logger) -> Data {
         Data {
             url_to_text: HashMap::new(),
             url_to_neighbours: HashMap::new(),
             url_includes: HashMap::new(),
             url_included_by: HashMap::new(),
-            client,
+            logger,
         }
     }
 
@@ -125,25 +125,25 @@ impl Data {
     }
 
     async fn dump(&self) {
-        self.client
+        self.logger
             .log_message(MessageType::INFO, "===FILES===")
             .await;
         for uri in self.url_to_text.keys() {
-            self.client
+            self.logger
                 .log_message(MessageType::INFO, &format!("{}", uri))
                 .await;
         }
-        self.client
+        self.logger
             .log_message(MessageType::INFO, "=INCLUDES=")
             .await;
         for (k, v) in &self.url_to_neighbours {
             for f in v.lock().await.iter() {
-                self.client
+                self.logger
                     .log_message(MessageType::INFO, &format!("url: {}: {}", k, f))
                     .await;
             }
         }
-        self.client
+        self.logger
             .log_message(MessageType::INFO, "==========")
             .await;
     }
@@ -163,9 +163,9 @@ pub struct FileDepot {
 }
 
 impl FileDepot {
-    pub fn new(client: Client) -> FileDepot {
+    pub fn new(logger: Logger) -> FileDepot {
         FileDepot {
-            data: Arc::new(Mutex::new(Data::new(client))),
+            data: Arc::new(Mutex::new(Data::new(logger))),
         }
     }
 
