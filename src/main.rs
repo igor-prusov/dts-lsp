@@ -3,6 +3,7 @@ use std::fs::read_dir;
 use std::fs::File;
 use std::io::prelude::*;
 use tower_lsp::jsonrpc::Result;
+#[allow(clippy::wildcard_imports)]
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use tree_sitter::Parser;
@@ -131,7 +132,7 @@ impl Backend {
                 Err(e) => {
                     self.logger
                         .log_message(MessageType::WARNING, format!("{}: {}", uri, e.kind()))
-                        .await
+                        .await;
                 }
             };
             s
@@ -149,6 +150,19 @@ impl Backend {
         self.process_includes(&tree, uri, &text).await
     }
 
+    fn extension_one_of(url: &Url, exts: &[&str]) -> bool {
+        let Some(url_ext) = std::path::Path::new(url.path()).extension() else {
+            return false;
+        };
+
+        for ext in exts {
+            if url_ext.eq_ignore_ascii_case(ext) {
+                return true;
+            }
+        }
+        false
+    }
+
     async fn open_neighbours(&self, uri: &Url) {
         let d = uri.join(".").unwrap();
         let d = d.path();
@@ -159,7 +173,7 @@ impl Backend {
                 continue;
             }
             let u = Url::from_file_path(p).unwrap();
-            if !u.path().ends_with(".dts") && !u.path().ends_with(".dtsi") {
+            if !Self::extension_one_of(&u, &["dts", "dtsi"]) {
                 continue;
             }
             if self.data.fd.exist(&u).await {
@@ -181,8 +195,8 @@ impl Data {
         let logger = logger::Logger::Lsp(client.clone());
         let fd = FileDepot::new(logger.clone());
         Data {
-            ld: LabelsDepot::new(logger.clone(), fd.clone()),
-            rd: ReferencesDepot::new(logger.clone(), fd.clone()),
+            ld: LabelsDepot::new(logger.clone(), &fd),
+            rd: ReferencesDepot::new(logger.clone(), &fd),
             fd,
         }
     }
@@ -217,7 +231,7 @@ impl LanguageServer for Backend {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = &params.text_document.uri;
 
-        let msg = format!("Open file: {}", uri);
+        let msg = format!("Open file: {uri}");
         self.logger.log_message(MessageType::INFO, msg).await;
 
         let text = params.text_document.text.as_str();
@@ -225,7 +239,7 @@ impl LanguageServer for Backend {
 
         while let Some(new_url) = includes.pop() {
             let mut tmp = self.handle_file(&new_url, None).await;
-            includes.append(&mut tmp)
+            includes.append(&mut tmp);
         }
 
         self.data.fd.dump().await;
@@ -244,9 +258,8 @@ impl LanguageServer for Backend {
         let location = input.text_document_position_params.position;
         let location = Point::new(location.line as usize, location.character as usize);
         let uri = input.text_document_position_params.text_document.uri;
-        let text = match self.data.fd.get_text(&uri).await {
-            Some(text) => text,
-            None => return Ok(None),
+        let Some(text) = self.data.fd.get_text(&uri).await else {
+            return Ok(None);
         };
         let mut parser = Parser::new();
         parser
@@ -276,10 +289,11 @@ impl LanguageServer for Backend {
         let location = params.text_document_position.position;
         let location = Point::new(location.line as usize, location.character as usize);
         let uri = params.text_document_position.text_document.uri;
-        let text = match self.data.fd.get_text(&uri).await {
-            Some(text) => text,
-            None => return Ok(None),
+
+        let Some(text) = self.data.fd.get_text(&uri).await else {
+            return Ok(None);
         };
+
         let mut parser = Parser::new();
         parser
             .set_language(&tree_sitter_devicetree::language())
@@ -298,7 +312,7 @@ impl LanguageServer for Backend {
                 if parent.kind() == "node" {
                     let mut res = Vec::new();
                     for x in v {
-                        res.push(Location::new(x.uri, x.range))
+                        res.push(Location::new(x.uri, x.range));
                     }
                     return Ok(Some(res));
                 }
