@@ -37,6 +37,11 @@ impl Data {
         );
     }
 
+    #[cfg(test)]
+    fn size(&self) -> usize {
+        self.label_to_symbol.keys().count()
+    }
+
     async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
         let mut visited = HashSet::new();
         let mut to_visit = Vec::new();
@@ -92,6 +97,12 @@ impl LabelsDepot {
     pub async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
         let data = self.data.lock().await;
         data.find_label(uri, label).await
+    }
+
+    #[cfg(test)]
+    pub async fn size(&self) -> usize {
+        let data = self.data.lock().await;
+        data.size()
     }
 
     pub async fn dump(&self) {
