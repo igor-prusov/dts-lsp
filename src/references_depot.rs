@@ -75,6 +75,11 @@ impl Data {
         }
         res
     }
+
+    #[cfg(test)]
+    fn size(&self) -> usize {
+        self.reference_to_symbols.keys().count()
+    }
 }
 
 pub struct ReferencesDepot {
@@ -98,5 +103,11 @@ impl ReferencesDepot {
     pub async fn find_references(&self, uri: &Url, name: &str) -> Vec<Symbol> {
         let data = self.data.lock().await;
         data.find_references(uri, name).await
+    }
+
+    #[cfg(test)]
+    pub async fn size(&self) -> usize {
+        let data = self.data.lock().await;
+        data.size()
     }
 }

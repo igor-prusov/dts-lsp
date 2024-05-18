@@ -155,6 +155,11 @@ impl Data {
     fn get_text(&self, uri: &Url) -> Option<String> {
         self.url_to_text.get(uri).cloned()
     }
+
+    #[cfg(test)]
+    fn size(&self) -> usize {
+        self.url_to_text.keys().count()
+    }
 }
 
 #[derive(Clone)]
@@ -194,7 +199,13 @@ impl FileDepot {
     pub async fn get_neighbours(&self, uri: &Url) -> Option<Arc<Mutex<Vec<Url>>>> {
         self.data.lock().await.get_neighbours(uri)
     }
+
     pub async fn get_component(&self, uri: &Url) -> Vec<Url> {
         self.data.lock().await.get_component(uri).await
+    }
+
+    #[cfg(test)]
+    pub async fn size(&self) -> usize {
+        self.data.lock().await.size()
     }
 }

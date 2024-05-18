@@ -5,7 +5,7 @@ use std::io::prelude::*;
 use tower_lsp::jsonrpc::Result;
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::lsp_types::*;
-use tower_lsp::{Client, LanguageServer, LspService, Server};
+use tower_lsp::{LanguageServer, LspService, Server};
 use tree_sitter::Parser;
 use tree_sitter::Point;
 use tree_sitter::Query;
@@ -29,6 +29,12 @@ struct Backend {
 }
 
 impl Backend {
+    fn new(logger: Logger) -> Self {
+        Backend {
+            data: Data::new(&logger),
+            logger,
+        }
+    }
     async fn process_labels(&self, tree: &Tree, uri: &Url, text: &str) {
         let mut cursor = QueryCursor::new();
 
@@ -191,8 +197,7 @@ struct Data {
 }
 
 impl Data {
-    fn new(client: &Client) -> Data {
-        let logger = logger::Logger::Lsp(client.clone());
+    fn new(logger: &logger::Logger) -> Data {
         let fd = FileDepot::new(logger.clone());
         Data {
             ld: LabelsDepot::new(logger.clone(), &fd),
@@ -342,9 +347,51 @@ async fn main() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::new(|client| Backend {
-        data: Data::new(&client),
-        logger: Logger::Lsp(client),
+    let (service, socket) = LspService::new(|client| {
+        let logger = Logger::Lsp(client);
+        Backend::new(logger)
     });
     Server::new(stdin, stdout, socket).serve(service).await;
+}
+
+#[cfg(test)]
+mod tests {
+
+    async fn be_single_file(file_text: &str) -> (Backend, Url) {
+        let logger = Logger::Print;
+        let be = Backend::new(logger.clone());
+        let url = Url::parse("file:///tmp/fake_url").unwrap();
+        let file_data = String::from(file_text);
+
+        be.handle_file(&url, Some(file_data)).await;
+        (be, url)
+    }
+
+    use super::*;
+    #[tokio::test]
+    async fn functional() {
+        {
+            let (be, _) = be_single_file("Bad file").await;
+
+            assert_eq!(be.data.fd.size().await, 1);
+            assert_eq!(be.data.ld.size().await, 0);
+            assert_eq!(be.data.rd.size().await, 0);
+        }
+        {
+            let (be, url) = be_single_file(
+                "
+            / {
+                lbl: node{};
+            };
+            ",
+            )
+            .await;
+
+            assert_eq!(be.data.fd.size().await, 1);
+            assert_eq!(be.data.ld.size().await, 1);
+            assert_eq!(be.data.rd.size().await, 0);
+            assert!(be.data.ld.find_label(&url, "lbl").await.is_some());
+            assert!(be.data.ld.find_label(&url, "label").await.is_none());
+        }
+    }
 }
