@@ -1,7 +1,6 @@
 use std::fs::metadata;
 use std::fs::read_dir;
 use std::fs::File;
-use std::io;
 use std::io::prelude::*;
 use tower_lsp::jsonrpc::Result;
 #[allow(clippy::wildcard_imports)]
