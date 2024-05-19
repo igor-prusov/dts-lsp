@@ -1,7 +1,7 @@
-use crate::logger::Logger;
 use crate::utils::convert_range;
 use crate::utils::Symbol;
 use crate::FileDepot;
+use crate::{info, log};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use tokio::sync::Mutex;
@@ -16,14 +16,12 @@ struct Label {
 struct Data {
     label_to_symbol: HashMap<Label, Range>,
     fd: FileDepot,
-    logger: Logger,
 }
 
 impl Data {
-    fn new(logger: &Logger, fd: &FileDepot) -> Data {
+    fn new(fd: &FileDepot) -> Data {
         Data {
             label_to_symbol: HashMap::new(),
-            logger: logger.clone(),
             fd: fd.clone(),
         }
     }
@@ -49,9 +47,7 @@ impl Data {
         to_visit.push(uri.clone());
 
         while let Some(uri) = to_visit.pop() {
-            self.logger
-                .log_message(MessageType::INFO, &format!("processing {uri}"))
-                .await;
+            info!("processing {uri}");
 
             if let Some(range) = self.label_to_symbol.get(&Label {
                 name: label.to_string(),
@@ -78,14 +74,12 @@ impl Data {
 
 pub struct LabelsDepot {
     data: Mutex<Data>,
-    logger: Logger,
 }
 
 impl LabelsDepot {
-    pub fn new(logger: Logger, fd: &FileDepot) -> LabelsDepot {
+    pub fn new(fd: &FileDepot) -> LabelsDepot {
         LabelsDepot {
-            data: Mutex::new(Data::new(&logger, fd)),
-            logger,
+            data: Mutex::new(Data::new(fd)),
         }
     }
 
@@ -107,16 +101,10 @@ impl LabelsDepot {
 
     pub async fn dump(&self) {
         let data = self.data.lock().await;
-        self.logger
-            .log_message(MessageType::INFO, "====== (labels) ======")
-            .await;
+        info!("====== (labels) ======");
         for k in data.label_to_symbol.keys() {
-            self.logger
-                .log_message(MessageType::INFO, &format!("url: {}: {}", k.uri, k.name))
-                .await;
+            info!("url: {}: {}", k.uri, k.name);
         }
-        self.logger
-            .log_message(MessageType::INFO, "======================")
-            .await;
+        info!("======================");
     }
 }

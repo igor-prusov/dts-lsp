@@ -1,4 +1,3 @@
-use crate::logger::Logger;
 use crate::utils::convert_range;
 use crate::utils::Symbol;
 use crate::FileDepot;
@@ -30,15 +29,13 @@ impl Reference {
 struct Data {
     reference_to_symbols: HashMap<Reference, Vec<Range>>,
     fd: FileDepot,
-    _logger: Logger,
 }
 
 impl Data {
-    fn new(logger: &Logger, fd: &FileDepot) -> Data {
+    fn new(fd: &FileDepot) -> Data {
         Data {
             reference_to_symbols: HashMap::new(),
             fd: fd.clone(),
-            _logger: logger.clone(),
         }
     }
 
@@ -84,14 +81,12 @@ impl Data {
 
 pub struct ReferencesDepot {
     data: Mutex<Data>,
-    _logger: Logger,
 }
 
 impl ReferencesDepot {
-    pub fn new(logger: Logger, fd: &FileDepot) -> ReferencesDepot {
+    pub fn new(fd: &FileDepot) -> ReferencesDepot {
         ReferencesDepot {
-            data: Mutex::new(Data::new(&logger, fd)),
-            _logger: logger,
+            data: Mutex::new(Data::new(fd)),
         }
     }
 

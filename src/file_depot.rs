@@ -1,26 +1,25 @@
-use crate::logger::Logger;
+use crate::{info, log};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_lsp::lsp_types::{MessageType, Url};
 
+#[allow(clippy::struct_field_names)]
 struct Data {
     url_to_text: HashMap<Url, String>,
     url_to_neighbours: HashMap<Url, Arc<Mutex<Vec<Url>>>>,
     url_includes: HashMap<Url, Arc<Mutex<Vec<Url>>>>,
     url_included_by: HashMap<Url, Arc<Mutex<Vec<Url>>>>,
-    logger: Logger,
 }
 
 impl Data {
-    fn new(logger: Logger) -> Data {
+    fn new() -> Data {
         Data {
             url_to_text: HashMap::new(),
             url_to_neighbours: HashMap::new(),
             url_includes: HashMap::new(),
             url_included_by: HashMap::new(),
-            logger,
         }
     }
 
@@ -125,27 +124,17 @@ impl Data {
     }
 
     async fn dump(&self) {
-        self.logger
-            .log_message(MessageType::INFO, "===FILES===")
-            .await;
+        info!("===FILES===");
         for uri in self.url_to_text.keys() {
-            self.logger
-                .log_message(MessageType::INFO, &format!("{uri}"))
-                .await;
+            info!("{uri}");
         }
-        self.logger
-            .log_message(MessageType::INFO, "=INCLUDES=")
-            .await;
+        info!("=INCLUDES=");
         for (k, v) in &self.url_to_neighbours {
             for f in v.lock().await.iter() {
-                self.logger
-                    .log_message(MessageType::INFO, &format!("url: {k}: {f}"))
-                    .await;
+                info!("url: {k}: {f}");
             }
         }
-        self.logger
-            .log_message(MessageType::INFO, "==========")
-            .await;
+        info!("==========");
     }
 
     fn exist(&self, uri: &Url) -> bool {
@@ -168,9 +157,9 @@ pub struct FileDepot {
 }
 
 impl FileDepot {
-    pub fn new(logger: Logger) -> FileDepot {
+    pub fn new() -> FileDepot {
         FileDepot {
-            data: Arc::new(Mutex::new(Data::new(logger))),
+            data: Arc::new(Mutex::new(Data::new())),
         }
     }
 

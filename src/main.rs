@@ -20,7 +20,8 @@ mod utils;
 
 use file_depot::FileDepot;
 use labels_depot::LabelsDepot;
-use logger::Logger;
+use logger::{log, Logger};
+
 use references_depot::ReferencesDepot;
 
 struct Backend {
@@ -31,10 +32,11 @@ struct Backend {
 impl Backend {
     fn new(logger: Logger) -> Self {
         Backend {
-            data: Data::new(&logger),
+            data: Data::new(),
             logger,
         }
     }
+
     async fn process_labels(&self, tree: &Tree, uri: &Url, text: &str) {
         let mut cursor = QueryCursor::new();
 
@@ -92,7 +94,7 @@ impl Backend {
             }
         }
         for msg in logs {
-            self.logger.log_message(MessageType::INFO, &msg).await;
+            info!("{}", &msg);
         }
         for (uri, new_url) in includes {
             self.data.fd.add_include(uri, &new_url).await;
@@ -120,9 +122,7 @@ impl Backend {
         }
 
         for (label, uri, range) in references {
-            self.logger
-                .log_message(MessageType::INFO, format!("LABEL = {label}"))
-                .await;
+            info!("LABEL = {label}");
             self.data.rd.add_reference(label, uri, range).await;
         }
     }
@@ -136,9 +136,7 @@ impl Backend {
             match file.read_to_string(&mut s) {
                 Ok(_) => {}
                 Err(e) => {
-                    self.logger
-                        .log_message(MessageType::WARNING, format!("{}: {}", uri, e.kind()))
-                        .await;
+                    warn!("{}: {}", uri, e.kind());
                 }
             };
             s
@@ -197,11 +195,11 @@ struct Data {
 }
 
 impl Data {
-    fn new(logger: &logger::Logger) -> Data {
-        let fd = FileDepot::new(logger.clone());
+    fn new() -> Data {
+        let fd = FileDepot::new();
         Data {
-            ld: LabelsDepot::new(logger.clone(), &fd),
-            rd: ReferencesDepot::new(logger.clone(), &fd),
+            ld: LabelsDepot::new(&fd),
+            rd: ReferencesDepot::new(&fd),
             fd,
         }
     }
@@ -210,6 +208,8 @@ impl Data {
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+        Logger::set(&self.logger).await;
+
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
@@ -224,9 +224,7 @@ impl LanguageServer for Backend {
     }
 
     async fn initialized(&self, _: InitializedParams) {
-        self.logger
-            .log_message(MessageType::INFO, "server initialized!")
-            .await;
+        info!("server initialized!");
     }
 
     async fn shutdown(&self) -> Result<()> {
@@ -236,8 +234,7 @@ impl LanguageServer for Backend {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = &params.text_document.uri;
 
-        let msg = format!("Open file: {uri}");
-        self.logger.log_message(MessageType::INFO, msg).await;
+        info!("Open file: {uri}");
 
         let text = params.text_document.text.as_str();
         let mut includes = self.handle_file(uri, Some(text.to_string())).await;
@@ -327,18 +324,15 @@ impl LanguageServer for Backend {
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        let msg = format!("Close file: {}", params.text_document.uri);
-        self.logger.log_message(MessageType::INFO, msg).await;
+        info!("Close file: {}", params.text_document.uri);
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        let msg = format!("Change file: {}", params.text_document.uri);
-        self.logger.log_message(MessageType::INFO, msg).await;
+        info!("Change file: {}", params.text_document.uri);
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
-        let msg = format!("Save file: {}", params.text_document.uri);
-        self.logger.log_message(MessageType::INFO, msg).await;
+        info!("Save file: {}", params.text_document.uri);
     }
 }
 
