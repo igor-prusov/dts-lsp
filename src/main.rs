@@ -1,6 +1,7 @@
 use std::fs::metadata;
 use std::fs::read_dir;
 use std::fs::File;
+use std::io;
 use std::io::prelude::*;
 use tower_lsp::jsonrpc::Result;
 #[allow(clippy::wildcard_imports)]
@@ -170,7 +171,15 @@ impl Backend {
     async fn open_neighbours(&self, uri: &Url) {
         let d = uri.join(".").unwrap();
         let d = d.path();
-        let files = read_dir(d).unwrap();
+        let files = match read_dir(d) {
+            Ok(x) => x,
+            Err(e) => {
+                // This is expected if client has opened a file that has some directories in it's path
+                // that have not been created yet.
+                warn!("Can't open dir {}: {}", d, e.to_string());
+                return;
+            }
+        };
         for f in files {
             let p = f.unwrap().path();
             if !metadata(&p).unwrap().is_file() {
