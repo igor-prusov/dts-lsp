@@ -14,6 +14,7 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+lazy_static = "1.4.0"
 tokio = { version = "1.36.0", features = [ "full" ] }
 tower-lsp = "0.20.0"
 tree-sitter = "0.22.2"
