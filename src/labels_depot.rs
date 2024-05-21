@@ -57,11 +57,9 @@ impl Data {
                 return Some(s);
             }
 
-            if let Some(x) = self.fd.get_neighbours(&uri).await {
-                for f in x.lock().await.iter() {
-                    if !visited.contains(f) {
-                        to_visit.push(f.clone());
-                    }
+            for f in self.fd.get_neighbours(&uri).await {
+                if !visited.contains(&f) {
+                    to_visit.push(f);
                 }
             }
 
