@@ -8,7 +8,6 @@ use tower_lsp::lsp_types::{MessageType, Url};
 #[allow(clippy::struct_field_names)]
 struct Data {
     url_to_text: HashMap<Url, String>,
-    url_to_neighbours: HashMap<Url, Arc<Mutex<Vec<Url>>>>,
     url_includes: HashMap<Url, Arc<Mutex<Vec<Url>>>>,
     url_included_by: HashMap<Url, Arc<Mutex<Vec<Url>>>>,
 }
@@ -17,7 +16,6 @@ impl Data {
     fn new() -> Data {
         Data {
             url_to_text: HashMap::new(),
-            url_to_neighbours: HashMap::new(),
             url_includes: HashMap::new(),
             url_included_by: HashMap::new(),
         }
@@ -32,21 +30,6 @@ impl Data {
     }
 
     async fn add_include(&mut self, uri: &Url, include_uri: &Url) {
-        let e = self.url_to_neighbours.entry(uri.clone()).or_default();
-        {
-            let mut e = e.lock().await;
-            e.push(include_uri.clone());
-        }
-
-        let e = self
-            .url_to_neighbours
-            .entry(include_uri.clone())
-            .or_default();
-        {
-            let mut e = e.lock().await;
-            e.push(uri.clone());
-        }
-
         let e = self.url_includes.entry(uri.clone()).or_default();
         {
             let mut e = e.lock().await;
@@ -119,8 +102,18 @@ impl Data {
         res
     }
 
-    fn get_neighbours(&self, uri: &Url) -> Option<Arc<Mutex<Vec<Url>>>> {
-        self.url_to_neighbours.get(uri).cloned()
+    async fn get_neighbours(&self, uri: &Url) -> Vec<Url> {
+        let mut res = Vec::new();
+
+        if let Some(x) = self.url_includes.get(uri) {
+            res.extend_from_slice(&x.lock().await);
+        }
+
+        if let Some(x) = self.url_included_by.get(uri) {
+            res.extend_from_slice(&x.lock().await);
+        }
+
+        res
     }
 
     async fn dump(&self) {
@@ -129,7 +122,12 @@ impl Data {
             info!("{uri}");
         }
         info!("=INCLUDES=");
-        for (k, v) in &self.url_to_neighbours {
+        for (k, v) in &self.url_includes {
+            for f in v.lock().await.iter() {
+                info!("url: {k}: {f}");
+            }
+        }
+        for (k, v) in &self.url_included_by {
             for f in v.lock().await.iter() {
                 info!("url: {k}: {f}");
             }
@@ -185,8 +183,8 @@ impl FileDepot {
         //self.data.lock().await.add_include(include_uri, uri).await;
     }
 
-    pub async fn get_neighbours(&self, uri: &Url) -> Option<Arc<Mutex<Vec<Url>>>> {
-        self.data.lock().await.get_neighbours(uri)
+    pub async fn get_neighbours(&self, uri: &Url) -> Vec<Url> {
+        self.data.lock().await.get_neighbours(uri).await
     }
 
     pub async fn get_component(&self, uri: &Url) -> Vec<Url> {
