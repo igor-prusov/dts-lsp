@@ -20,21 +20,17 @@ mod utils;
 
 use file_depot::FileDepot;
 use labels_depot::LabelsDepot;
-use logger::{log, Logger};
+use logger::{log_message, Logger};
 
 use references_depot::ReferencesDepot;
 
 struct Backend {
     data: Data,
-    logger: Logger,
 }
 
 impl Backend {
-    fn new(logger: Logger) -> Self {
-        Backend {
-            data: Data::new(),
-            logger,
-        }
+    fn new() -> Self {
+        Backend { data: Data::new() }
     }
 
     async fn process_labels(&self, tree: &Tree, uri: &Url, text: &str) {
@@ -216,8 +212,6 @@ impl Data {
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
-        Logger::set(&self.logger).await;
-
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
@@ -301,6 +295,7 @@ impl LanguageServer for Backend {
         let uri = params.text_document_position.text_document.uri;
 
         let Some(text) = self.data.fd.get_text(&uri).await else {
+            warn!("No text found for file {uri}");
             return Ok(None);
         };
 
@@ -350,8 +345,8 @@ async fn main() {
     let stdout = tokio::io::stdout();
 
     let (service, socket) = LspService::new(|client| {
-        let logger = Logger::Lsp(client);
-        Backend::new(logger)
+        Logger::set(&Logger::Lsp(client));
+        Backend::new()
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
@@ -360,8 +355,8 @@ async fn main() {
 mod tests {
 
     async fn be_single_file(file_text: &str) -> (Backend, Url) {
-        let logger = Logger::Print;
-        let be = Backend::new(logger.clone());
+        Logger::set(&Logger::Print);
+        let be = Backend::new();
         let url = Url::parse("file:///tmp/fake_url").unwrap();
         let file_data = String::from(file_text);
 
