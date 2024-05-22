@@ -1,18 +1,19 @@
 use crate::utils::convert_range;
 use crate::utils::Symbol;
 use crate::FileDepot;
-use crate::{info, log};
+use crate::{info, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use tower_lsp::lsp_types::{MessageType, Range, Url};
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 struct Label {
     uri: Url,
     name: String,
 }
 
+#[derive(Clone)]
 struct Data {
     label_to_symbol: HashMap<Label, Range>,
     fd: FileDepot,
@@ -68,6 +69,14 @@ impl Data {
 
         None
     }
+
+    async fn dump(&self) {
+        info!("====== (labels) ======");
+        for k in self.label_to_symbol.keys() {
+            info!("url: {}: {}", k.uri, k.name);
+        }
+        info!("======================");
+    }
 }
 
 pub struct LabelsDepot {
@@ -82,27 +91,34 @@ impl LabelsDepot {
     }
 
     pub async fn add_label(&self, label: &str, uri: &Url, range: tree_sitter::Range) {
-        let mut data = self.data.lock().await;
+        info!("LabelsDepot::add_label()");
+        let mut data = self.data.lock().unwrap();
         data.add_label(label, uri, range);
     }
 
     pub async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
-        let data = self.data.lock().await;
-        data.find_label(uri, label).await
+        info!("LabelsDepot::find_label()");
+        {
+            let data = self.data.lock().unwrap();
+            data.clone()
+        }
+        .find_label(uri, label)
+        .await
+    }
+
+    pub async fn dump(&self) {
+        info!("LabelsDepot::dump()");
+        {
+            let lock = self.data.lock().unwrap();
+            lock.clone()
+        }
+        .dump()
+        .await;
     }
 
     #[cfg(test)]
     pub async fn size(&self) -> usize {
-        let data = self.data.lock().await;
+        let data = self.data.lock().unwrap();
         data.size()
-    }
-
-    pub async fn dump(&self) {
-        let data = self.data.lock().await;
-        info!("====== (labels) ======");
-        for k in data.label_to_symbol.keys() {
-            info!("url: {}: {}", k.uri, k.name);
-        }
-        info!("======================");
     }
 }

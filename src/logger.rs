@@ -1,7 +1,7 @@
 use crate::MessageType;
 use lazy_static::lazy_static;
 use std::fmt::Display;
-use tokio::sync::Mutex;
+use std::sync::Mutex;
 use tower_lsp::Client;
 
 #[derive(Clone)]
@@ -33,8 +33,8 @@ impl Logger {
         }
     }
 
-    pub async fn set(new_logger: &Logger) {
-        let mut guard = LOGGER.lock().await;
+    pub fn set(new_logger: &Logger) {
+        let mut guard = LOGGER.lock().unwrap();
         *guard = new_logger.clone();
     }
 }
@@ -43,28 +43,39 @@ lazy_static! {
     static ref LOGGER: Mutex<Logger> = Mutex::new(Logger::Print);
 }
 
-pub async fn log<M: Display>(typ: MessageType, message: M) {
-    let guard = LOGGER.lock().await;
-    guard.log(typ, message).await;
+pub async fn log_message<M: Display>(typ: MessageType, message: M) {
+    {
+        let guard = LOGGER.lock().unwrap();
+        guard.clone()
+    }
+    .log(typ, message)
+    .await;
 }
 
 #[macro_export]
 macro_rules! error {
     ($($args:tt)*) => {
-        log(MessageType::ERROR, &format!($($args)*)).await;
+        log_message(MessageType::ERROR, &format!($($args)*)).await;
     };
 }
 
 #[macro_export]
 macro_rules! warn {
     ($($args:tt)*) => {
-        log(MessageType::WARNING, &format!($($args)*)).await;
+        log_message(MessageType::WARNING, &format!($($args)*)).await;
     };
 }
 
 #[macro_export]
 macro_rules! info {
     ($($args:tt)*) => {
-        log(MessageType::INFO, &format!($($args)*)).await;
+        log_message(MessageType::INFO, &format!($($args)*)).await;
+    };
+}
+
+#[macro_export]
+macro_rules! log {
+    ($($args:tt)*) => {
+        log_message(MessageType::LOG, &format!($($args)*)).await;
     };
 }
