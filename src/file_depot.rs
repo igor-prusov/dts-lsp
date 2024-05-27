@@ -17,6 +17,21 @@ struct Data {
     entries: HashMap<Url, FileEntry>,
 }
 
+#[derive(PartialEq)]
+pub enum InsertResult {
+    Ok,
+    Exists,
+}
+
+impl InsertResult {
+    pub fn exists(self) -> bool {
+        match self {
+            Self::Ok => false,
+            Self::Exists => true,
+        }
+    }
+}
+
 impl Data {
     fn new() -> Data {
         Data {
@@ -24,11 +39,14 @@ impl Data {
         }
     }
 
-    fn insert(&mut self, uri: &Url, text: &str) {
+    fn insert(&mut self, uri: &Url, text: &str) -> InsertResult {
         let e = self.entries.entry(uri.clone()).or_default();
 
         if e.text.is_none() {
             e.text = Some(text.to_string());
+            InsertResult::Ok
+        } else {
+            InsertResult::Exists
         }
     }
 
@@ -138,10 +156,10 @@ impl FileDepot {
         }
     }
 
-    pub async fn insert(&self, uri: &Url, text: String) {
-        info!("FileDepot::insert()");
+    pub async fn insert(&self, uri: &Url, text: String) -> InsertResult {
+        info!("FileDepot::insert({uri})");
         let mut data = self.data.lock().unwrap();
-        data.insert(uri, &text);
+        data.insert(uri, &text)
     }
 
     pub async fn dump(&self) {

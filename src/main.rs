@@ -137,7 +137,10 @@ impl Backend {
             };
             s
         };
-        self.data.fd.insert(uri, text.clone()).await;
+
+        if self.data.fd.insert(uri, text.clone()).await.exists() {
+            return Vec::new();
+        };
 
         let mut parser = Parser::new();
         parser

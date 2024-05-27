@@ -44,10 +44,8 @@ impl Data {
     fn add_reference(&mut self, name: &str, uri: &Url, range: tree_sitter::Range) {
         let r = Reference::new(uri, name);
         if let Some(ref mut v) = self.reference_to_symbols.get_mut(&r) {
-            // TODO: Keep track of processed files to avoid repeated add_reference calls.
-            if !v.contains(&convert_range(&range)) {
-                v.push(convert_range(&range));
-            }
+            assert!(!v.contains(&convert_range(&range)));
+            v.push(convert_range(&range));
         } else {
             let v = vec![convert_range(&range)];
             self.reference_to_symbols.insert(r, v);
