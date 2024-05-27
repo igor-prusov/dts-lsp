@@ -11,7 +11,7 @@ For now the main goal is to support jumping around DTS labels. The following is 
 
 ## Installation
 ```sh
-cargo install --git https://github.com/igor-prusov/dts-lsp
+cargo install dts-lsp
 ```
 
 ## Neovim configuration
