@@ -8,7 +8,7 @@ description = "Language Server for Device Tree Source files"
 repository = "https://github.com/igor-prusov/dts-lsp"
 homepage = "https://github.com/igor-prusov/dts-lsp"
 documentation = "https://github.com/igor-prusov/dts-lsp"
-keywords = ["dts", "lsp"]
+keywords = ["dts", "lsp", "language-server", "device-tree"]
 readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
