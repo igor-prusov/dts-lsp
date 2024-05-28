@@ -73,6 +73,19 @@ impl Data {
         res
     }
 
+    fn invalidate(&mut self, uri: &Url) {
+        let mut v = Vec::new();
+        for k in self.reference_to_symbols.keys() {
+            if k.uri == *uri {
+                v.push(k.clone());
+            }
+        }
+
+        for reference in v {
+            self.reference_to_symbols.remove(&reference);
+        }
+    }
+
     #[cfg(test)]
     fn size(&self) -> usize {
         self.reference_to_symbols.keys().count()
@@ -92,10 +105,8 @@ impl ReferencesDepot {
 
     pub async fn add_reference(&self, name: &str, uri: &Url, range: tree_sitter::Range) {
         info!("ReferencesDepot::add_reference()");
-        {
-            let mut data = self.data.lock().unwrap();
-            data.add_reference(name, uri, range);
-        }
+        let mut data = self.data.lock().unwrap();
+        data.add_reference(name, uri, range);
     }
 
     pub async fn find_references(&self, uri: &Url, name: &str) -> Vec<Symbol> {
@@ -106,6 +117,12 @@ impl ReferencesDepot {
         }
         .find_references(uri, name)
         .await
+    }
+
+    pub async fn invalidate(&self, uri: &Url) {
+        info!("ReferencesDepot::invalidate()");
+        let mut data = self.data.lock().unwrap();
+        data.invalidate(uri);
     }
 
     #[cfg(test)]
