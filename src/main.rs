@@ -358,7 +358,6 @@ async fn main() {
 mod tests {
 
     async fn be_single_file(file_text: &str) -> (Backend, Url) {
-        Logger::set(&Logger::Print);
         let be = Backend::new();
         let url = Url::parse("file:///tmp/fake_url").unwrap();
         let file_data = String::from(file_text);
@@ -370,6 +369,7 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn functional() {
+        Logger::set(&Logger::Print);
         {
             let (be, _) = be_single_file("Bad file").await;
 
