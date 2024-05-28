@@ -279,14 +279,22 @@ impl LanguageServer for Backend {
         {
             let label = node.utf8_text(text.as_bytes()).unwrap();
 
-            if let (Some(parent), Some(point)) =
-                (node.parent(), self.data.ld.find_label(&uri, label).await)
-            {
-                if parent.kind() == "reference" {
-                    let pos = Location::new(point.uri, point.range);
-                    return Ok(Some(GotoDefinitionResponse::Scalar(pos)));
-                }
+            if !node.parent().is_some_and(|x| x.kind() == "reference") {
+                return Ok(None);
             }
+
+            let labels = self.data.ld.find_label(&uri, label).await;
+            let res: Vec<Location> = labels
+                .clone()
+                .into_iter()
+                .map(|x| Location::new(x.uri, x.range))
+                .collect();
+
+            match res.len() {
+                0 => return Ok(None),
+                1 => return Ok(Some(GotoDefinitionResponse::Scalar(res[0].clone()))),
+                _ => return Ok(Some(GotoDefinitionResponse::Array(res))),
+            };
         }
 
         Ok(None)
@@ -366,6 +374,14 @@ mod tests {
         (be, url)
     }
 
+    async fn be_add_file(be: &Backend, uri: &str, file_text: &str) {
+        let uri = "file:///".to_owned() + uri;
+        let url = Url::parse(&uri).unwrap();
+        let file_data = file_text.to_owned();
+
+        be.handle_file(&url, Some(file_data)).await;
+    }
+
     use super::*;
     #[tokio::test]
     async fn functional() {
@@ -390,8 +406,53 @@ mod tests {
             assert_eq!(be.data.fd.size().await, 1);
             assert_eq!(be.data.ld.size().await, 1);
             assert_eq!(be.data.rd.size().await, 0);
-            assert!(be.data.ld.find_label(&url, "lbl").await.is_some());
-            assert!(be.data.ld.find_label(&url, "label").await.is_none());
+            assert!(!be.data.ld.find_label(&url, "lbl").await.is_empty());
+            assert!(be.data.ld.find_label(&url, "label").await.is_empty());
+        }
+        {
+            let be = Backend::new();
+
+            be_add_file(
+                &be,
+                "a.dts",
+                "
+            #include \"common.dtsi\"
+            / {
+                node: node {};
+            };
+                           ",
+            )
+            .await;
+
+            be_add_file(
+                &be,
+                "b.dts",
+                "
+            #include \"common.dtsi\"
+            / {
+                node: node {};
+            };
+                           ",
+            )
+            .await;
+
+            be_add_file(
+                &be,
+                "common.dtsi",
+                "
+            / {
+                root {
+                    ref = <&node>;
+                };
+            };
+                           ",
+            )
+            .await;
+            assert_eq!(be.data.fd.size().await, 3);
+            be.data.ld.dump().await;
+            let url = Url::parse("file:///a.dts").unwrap();
+            let labels = be.data.ld.find_label(&url, "node").await;
+            assert_eq!(labels.len(), 2);
         }
     }
 }

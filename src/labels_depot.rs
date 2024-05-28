@@ -41,9 +41,10 @@ impl Data {
         self.label_to_symbol.keys().count()
     }
 
-    async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
+    async fn find_label(&self, uri: &Url, label: &str) -> Vec<Symbol> {
         let mut visited = HashSet::new();
         let mut to_visit = Vec::new();
+        let mut res = Vec::new();
 
         to_visit.push(uri.clone());
 
@@ -54,8 +55,7 @@ impl Data {
                 name: label.to_string(),
                 uri: uri.clone(),
             }) {
-                let s = Symbol::new(uri, *range);
-                return Some(s);
+                res.push(Symbol::new(uri.clone(), *range));
             }
 
             for f in self.fd.get_neighbours(&uri).await {
@@ -67,7 +67,7 @@ impl Data {
             visited.insert(uri);
         }
 
-        None
+        res
     }
 
     async fn dump(&self) {
@@ -96,7 +96,7 @@ impl LabelsDepot {
         data.add_label(label, uri, range);
     }
 
-    pub async fn find_label(&self, uri: &Url, label: &str) -> Option<Symbol> {
+    pub async fn find_label(&self, uri: &Url, label: &str) -> Vec<Symbol> {
         info!("LabelsDepot::find_label()");
         {
             let data = self.data.lock().unwrap();
