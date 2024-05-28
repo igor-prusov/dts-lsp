@@ -70,6 +70,20 @@ impl Data {
         res
     }
 
+    fn invalidate(&mut self, uri: &Url) {
+        let mut v = Vec::new();
+
+        for k in self.label_to_symbol.keys() {
+            if k.uri == *uri {
+                v.push(k.clone());
+            }
+        }
+
+        for label in v {
+            self.label_to_symbol.remove(&label);
+        }
+    }
+
     async fn dump(&self) {
         info!("====== (labels) ======");
         for k in self.label_to_symbol.keys() {
@@ -114,6 +128,12 @@ impl LabelsDepot {
         }
         .dump()
         .await;
+    }
+
+    pub async fn invalidate(&self, uri: &Url) {
+        info!("LabelsDepot::invalidate()");
+        let mut data = self.data.lock().unwrap();
+        data.invalidate(uri);
     }
 
     #[cfg(test)]

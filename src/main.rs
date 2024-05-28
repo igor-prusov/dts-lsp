@@ -138,8 +138,13 @@ impl Backend {
             s
         };
 
-        if self.data.fd.insert(uri, text.clone()).await.exists() {
-            return Vec::new();
+        match self.data.fd.insert(uri, text.clone()).await {
+            file_depot::InsertResult::Exists => return Vec::new(),
+            file_depot::InsertResult::Modified => {
+                self.data.ld.invalidate(uri).await;
+                self.data.rd.invalidate(uri).await;
+            }
+            file_depot::InsertResult::Ok => (),
         };
 
         let mut parser = Parser::new();
@@ -342,7 +347,17 @@ impl LanguageServer for Backend {
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        info!("Change file: {}", params.text_document.uri);
+        let uri = &params.text_document.uri;
+
+        info!("Change file: {uri}");
+
+        let text = &params.content_changes[0].text;
+        let mut includes = self.handle_file(uri, Some(text.to_string())).await;
+
+        while let Some(new_url) = includes.pop() {
+            let mut tmp = self.handle_file(&new_url, None).await;
+            includes.append(&mut tmp);
+        }
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {

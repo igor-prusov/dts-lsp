@@ -21,15 +21,7 @@ struct Data {
 pub enum InsertResult {
     Ok,
     Exists,
-}
-
-impl InsertResult {
-    pub fn exists(self) -> bool {
-        match self {
-            Self::Ok => false,
-            Self::Exists => true,
-        }
-    }
+    Modified,
 }
 
 impl Data {
@@ -42,11 +34,16 @@ impl Data {
     fn insert(&mut self, uri: &Url, text: &str) -> InsertResult {
         let e = self.entries.entry(uri.clone()).or_default();
 
-        if e.text.is_none() {
-            e.text = Some(text.to_string());
-            InsertResult::Ok
-        } else {
-            InsertResult::Exists
+        match &e.text {
+            None => {
+                e.text = Some(text.to_string());
+                InsertResult::Ok
+            }
+            Some(x) if x == text => InsertResult::Exists,
+            Some(_) => {
+                e.text = Some(text.to_string());
+                InsertResult::Modified
+            }
         }
     }
 
