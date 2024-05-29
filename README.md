@@ -16,7 +16,7 @@ An LSP for DTS files built on top of [tree-sitter-devicetree](https://github.com
 For now the main goal is to support jumping around DTS labels. The following is a list of implemented and intended features:
 - [x] Go to label definition
 - [x] Find references to label
-- [ ] Handle editor buffer changes
+- [x] Handle editor buffer changes
 
 ## Installation
 ```sh
