@@ -67,9 +67,15 @@ jobs:
         with:
           files: |
             ${{ env.ASSET }}
-        
-      - name: Publish
-        shell: bash
-        env:
-          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-        run: cargo publish --token ${CRATES_IO_TOKEN}
+
+  publish-crate:
+    name: Publish crate
+    needs: build-and-upload
+    runs-on: ubuntu-latest
+    env:
+      CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo publish --token ${CRATES_IO_TOKEN}
+
