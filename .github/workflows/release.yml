@@ -68,3 +68,11 @@ jobs:
           files: |
             ${{ env.ASSET }}
         
+      - name: Publish
+        shell: bash
+        env:
+          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: cargo publish --token ${CRATES_IO_TOKEN}
+        with:
+          files: |
+            ${{ env.ASSET }}
