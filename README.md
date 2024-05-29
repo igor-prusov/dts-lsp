@@ -1,5 +1,15 @@
 # Language Server for Device Tree Source files
-![Build and Test workflow](https://github.com/igor-prusov/dts-lsp/actions/workflows/build.yml/badge.svg)
+
+[![Build Status][actions-badge]][actions-url]
+[![Crates.io][crates-badge]][crates-url]
+
+[crates-badge]: https://img.shields.io/crates/v/dts-lsp.svg
+[crates-url]: https://crates.io/crates/dts-lsp
+
+[actions-badge]: https://github.com/tokio-rs/tokio/workflows/CI/badge.svg
+[actions-url]: https://github.com/igor-prusov/dts-lsp/actions?query=workflow%3ABuild%20and%20Test+branch%3Amaster
+
+
 
 An LSP for DTS files built on top of [tree-sitter-devicetree](https://github.com/joelspadin/tree-sitter-devicetree) grammar.
 ## Features
