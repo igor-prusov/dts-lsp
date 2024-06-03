@@ -126,8 +126,7 @@ impl Backend {
     async fn handle_file(&self, uri: &Url, text: Option<String>) -> Vec<Url> {
         let text = if let Some(x) = text {
             x
-        } else {
-            let mut file = File::open(uri.path()).unwrap();
+        } else if let Ok(mut file) = File::open(uri.path()) {
             let mut s = String::new();
             match file.read_to_string(&mut s) {
                 Ok(_) => {}
@@ -136,6 +135,8 @@ impl Backend {
                 }
             };
             s
+        } else {
+            return Vec::new();
         };
 
         match self.data.fd.insert(uri, text.clone()).await {
