@@ -18,6 +18,9 @@ mod logger;
 mod references_depot;
 mod utils;
 
+#[cfg(test)]
+mod tests;
+
 use file_depot::FileDepot;
 use labels_depot::LabelsDepot;
 use logger::{log_message, Logger};
@@ -26,11 +29,15 @@ use references_depot::ReferencesDepot;
 
 struct Backend {
     data: Data,
+    process_neighbours: bool,
 }
 
 impl Backend {
     fn new() -> Self {
-        Backend { data: Data::new() }
+        Backend {
+            data: Data::new(),
+            process_neighbours: true,
+        }
     }
 
     async fn process_labels(&self, tree: &Tree, uri: &Url, text: &str) {
@@ -258,16 +265,15 @@ impl LanguageServer for Backend {
         self.data.fd.dump().await;
         self.data.ld.dump().await;
 
-        self.open_neighbours(uri).await;
+        if self.process_neighbours {
+            self.open_neighbours(uri).await;
+        }
     }
 
     async fn goto_definition(
         &self,
         input: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        // TODO: Handle files, that look like arch/arc/boot/dts/skeleton.dtsi
-        // i.e. there is dtsi file with labels, that are expected to be in files
-        // including skeleton.dtsi
         let location = input.text_document_position_params.position;
         let location = Point::new(location.line as usize, location.character as usize);
         let uri = input.text_document_position_params.text_document.uri;
@@ -376,99 +382,4 @@ async fn main() {
         Backend::new()
     });
     Server::new(stdin, stdout, socket).serve(service).await;
-}
-
-#[cfg(test)]
-mod tests {
-
-    async fn be_single_file(file_text: &str) -> (Backend, Url) {
-        let be = Backend::new();
-        let url = Url::parse("file:///tmp/fake_url").unwrap();
-        let file_data = String::from(file_text);
-
-        be.handle_file(&url, Some(file_data)).await;
-        (be, url)
-    }
-
-    async fn be_add_file(be: &Backend, uri: &str, file_text: &str) {
-        let uri = "file:///".to_owned() + uri;
-        let url = Url::parse(&uri).unwrap();
-        let file_data = file_text.to_owned();
-
-        be.handle_file(&url, Some(file_data)).await;
-    }
-
-    use super::*;
-    #[tokio::test]
-    async fn functional() {
-        Logger::set(&Logger::Print);
-        {
-            let (be, _) = be_single_file("Bad file").await;
-
-            assert_eq!(be.data.fd.size().await, 1);
-            assert_eq!(be.data.ld.size().await, 0);
-            assert_eq!(be.data.rd.size().await, 0);
-        }
-        {
-            let (be, url) = be_single_file(
-                "
-            / {
-                lbl: node{};
-            };
-            ",
-            )
-            .await;
-
-            assert_eq!(be.data.fd.size().await, 1);
-            assert_eq!(be.data.ld.size().await, 1);
-            assert_eq!(be.data.rd.size().await, 0);
-            assert!(!be.data.ld.find_label(&url, "lbl").await.is_empty());
-            assert!(be.data.ld.find_label(&url, "label").await.is_empty());
-        }
-        {
-            let be = Backend::new();
-
-            be_add_file(
-                &be,
-                "a.dts",
-                "
-            #include \"common.dtsi\"
-            / {
-                node: node {};
-            };
-                           ",
-            )
-            .await;
-
-            be_add_file(
-                &be,
-                "b.dts",
-                "
-            #include \"common.dtsi\"
-            / {
-                node: node {};
-            };
-                           ",
-            )
-            .await;
-
-            be_add_file(
-                &be,
-                "common.dtsi",
-                "
-            / {
-                root {
-                    ref = <&node>;
-                };
-            };
-                           ",
-            )
-            .await;
-            assert_eq!(be.data.fd.size().await, 3);
-            be.data.ld.dump().await;
-            let url = Url::parse("file:///a.dts").unwrap();
-            let labels = be.data.ld.find_label(&url, "node").await;
-            assert_eq!(labels.len(), 2);
-        }
-    }
 }
