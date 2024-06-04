@@ -89,6 +89,22 @@ async fn functional() {
         assert_eq!(be.has_label(good_path, "label").await, 0);
     }
     {
+        /* Files without supported extension should be ignored */
+        let be = Backend::new();
+        let bad_ext_path = "tests/1/good_file.bad_ext";
+        let good_path = "tests/1/good_file.dts";
+
+        be.mock_open(bad_ext_path).await;
+
+        assert_eq!(be.data.fd.size().await, 2);
+        assert_eq!(be.data.ld.size().await, 2);
+        assert_eq!(be.data.rd.size().await, 0);
+
+        assert_eq!(be.has_label(good_path, "a").await, 1);
+        assert_eq!(be.has_label(good_path, "b").await, 1);
+        assert_eq!(be.has_label(good_path, "label").await, 0);
+    }
+    {
         let be = Backend::new();
         let path = "tests/2/b.dts";
 
