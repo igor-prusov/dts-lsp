@@ -131,6 +131,10 @@ impl Backend {
     }
 
     async fn handle_file(&self, uri: &Url, text: Option<String>) -> Vec<Url> {
+        if !utils::extension_one_of(uri, &["dts", "dtsi"]) {
+            return Vec::new();
+        }
+
         let text = if let Some(x) = text {
             x
         } else if let Ok(mut file) = File::open(uri.path()) {
@@ -166,19 +170,6 @@ impl Backend {
         self.process_includes(&tree, uri, &text).await
     }
 
-    fn extension_one_of(url: &Url, exts: &[&str]) -> bool {
-        let Some(url_ext) = std::path::Path::new(url.path()).extension() else {
-            return false;
-        };
-
-        for ext in exts {
-            if url_ext.eq_ignore_ascii_case(ext) {
-                return true;
-            }
-        }
-        false
-    }
-
     async fn open_neighbours(&self, uri: &Url) {
         let d = uri.join(".").unwrap();
         let d = d.path();
@@ -197,9 +188,6 @@ impl Backend {
                 continue;
             }
             let u = Url::from_file_path(p).unwrap();
-            if !Self::extension_one_of(&u, &["dts", "dtsi"]) {
-                continue;
-            }
             if self.data.fd.exist(&u).await {
                 continue;
             }

@@ -24,3 +24,16 @@ pub fn convert_range(range: &tree_sitter::Range) -> Range {
         ),
     )
 }
+
+pub fn extension_one_of(url: &Url, exts: &[&str]) -> bool {
+    let Some(url_ext) = std::path::Path::new(url.path()).extension() else {
+        return false;
+    };
+
+    for ext in exts {
+        if url_ext.eq_ignore_ascii_case(ext) {
+            return true;
+        }
+    }
+    false
+}
