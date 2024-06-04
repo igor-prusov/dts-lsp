@@ -124,6 +124,7 @@ async fn functional() {
 
         assert_eq!(be.data.fd.size().await, 1);
         assert_eq!(be.data.ld.size().await, 2);
+        assert_eq!(be.data.rd.size().await, 0);
 
         be.mock_change(
             path,
@@ -137,5 +138,17 @@ async fn functional() {
         .await;
         assert_eq!(be.data.fd.size().await, 1);
         assert_eq!(be.data.ld.size().await, 1);
+    }
+    {
+        /* File including non-existent DTSI file */
+        let be = Backend::new();
+        let path = "tests/4/a.dts";
+
+        be.mock_open(path).await;
+
+        assert_eq!(be.data.fd.size().await, 2);
+        assert_eq!(be.data.fd.n_without_text().await, 1);
+        assert_eq!(be.data.ld.size().await, 2);
+        assert_eq!(be.data.rd.size().await, 0);
     }
 }

@@ -139,6 +139,14 @@ impl Data {
     fn size(&self) -> usize {
         self.entries.keys().count()
     }
+
+    #[cfg(test)]
+    fn n_without_text(&self) -> usize {
+        self.entries
+            .iter()
+            .map(|x| x.1.text.is_some() as usize)
+            .sum()
+    }
 }
 
 #[derive(Clone)]
@@ -197,5 +205,10 @@ impl FileDepot {
     #[cfg(test)]
     pub async fn size(&self) -> usize {
         self.data.lock().unwrap().size()
+    }
+
+    #[cfg(test)]
+    pub async fn n_without_text(&self) -> usize {
+        self.data.lock().unwrap().n_without_text()
     }
 }
