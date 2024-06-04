@@ -1,0 +1,6 @@
+#include "missing.dtsi"
+
+/ {
+	a: node_a{};
+	b: node_b{};
+};
