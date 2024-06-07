@@ -115,8 +115,8 @@ impl Data {
 
     async fn dump(&self) {
         info!("===FILES===");
-        for uri in self.entries.keys() {
-            info!("{uri}");
+        for (k, v) in &self.entries {
+            info!("{k}, hasText: {}", v.text.is_some());
         }
         info!("=INCLUDES=");
         for (k, v) in &self.entries {
