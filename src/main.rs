@@ -241,6 +241,7 @@ impl LanguageServer for Backend {
 
         self.data.fd.dump().await;
         self.data.ld.dump().await;
+        self.data.rd.dump().await;
 
         if self.process_neighbours {
             self.open_neighbours(uri).await;
