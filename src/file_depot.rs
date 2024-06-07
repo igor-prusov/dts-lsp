@@ -102,17 +102,6 @@ impl Data {
         res
     }
 
-    fn get_neighbours(&self, uri: &Url) -> Vec<Url> {
-        let mut res = Vec::new();
-
-        if let Some(x) = self.entries.get(uri) {
-            res.extend_from_slice(&x.includes);
-            res.extend_from_slice(&x.included_by);
-        }
-
-        res
-    }
-
     async fn dump(&self) {
         info!("===FILES===");
         for (k, v) in &self.entries {
@@ -190,11 +179,6 @@ impl FileDepot {
     pub async fn add_include(&self, uri: &Url, include_uri: &Url) {
         info!("FileDepot::add_include()");
         self.data.lock().unwrap().add_include(uri, include_uri);
-    }
-
-    pub async fn get_neighbours(&self, uri: &Url) -> Vec<Url> {
-        info!("FileDepot::get_neighbours()");
-        self.data.lock().unwrap().get_neighbours(uri)
     }
 
     pub async fn get_component(&self, uri: &Url) -> Vec<Url> {
