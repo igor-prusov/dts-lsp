@@ -43,10 +43,16 @@ impl Data {
 
     async fn find_label(&self, uri: &Url, label: &str) -> Vec<Symbol> {
         let mut visited = HashSet::new();
-        let mut to_visit = Vec::new();
+        let mut to_visit = vec![uri.clone()];
         let mut res = Vec::new();
 
-        to_visit.push(uri.clone());
+        self.fd.dump().await;
+        let v = self.fd.get_component(uri).await;
+        for f in &v {
+            if !visited.contains(f) {
+                to_visit.push(f.clone());
+            }
+        }
 
         while let Some(uri) = to_visit.pop() {
             info!("processing {uri}");
@@ -56,12 +62,6 @@ impl Data {
                 uri: uri.clone(),
             }) {
                 res.push(Symbol::new(uri.clone(), *range));
-            }
-
-            for f in self.fd.get_neighbours(&uri).await {
-                if !visited.contains(&f) {
-                    to_visit.push(f);
-                }
             }
 
             visited.insert(uri);
