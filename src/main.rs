@@ -1,7 +1,6 @@
 use std::fs::metadata;
 use std::fs::read_dir;
-use std::fs::File;
-use std::io::prelude::*;
+use std::fs::read_to_string;
 use tower_lsp::jsonrpc::Result;
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::lsp_types::*;
@@ -135,19 +134,12 @@ impl Backend {
             return Vec::new();
         }
 
-        let text = if let Some(x) = text {
-            x
-        } else if let Ok(mut file) = File::open(uri.path()) {
-            let mut s = String::new();
-            match file.read_to_string(&mut s) {
-                Ok(_) => {}
-                Err(e) => {
-                    warn!("{}: {}", uri, e.kind());
-                }
-            };
-            s
-        } else {
-            return Vec::new();
+        let text = match text.map_or(read_to_string(uri.path()), Ok) {
+            Ok(x) => x,
+            Err(e) => {
+                warn!("{}: {}", uri, e.kind());
+                return Vec::new();
+            }
         };
 
         match self.data.fd.insert(uri, text.clone()).await {
@@ -172,16 +164,13 @@ impl Backend {
 
     async fn open_neighbours(&self, uri: &Url) {
         let d = uri.join(".").unwrap();
-        let d = d.path();
-        let files = match read_dir(d) {
-            Ok(x) => x,
-            Err(e) => {
-                // This is expected if client has opened a file that has some directories in it's path
-                // that have not been created yet.
-                warn!("Can't open dir {}: {}", d, e.to_string());
-                return;
-            }
+
+        // Skip if client has opened a buffer for a file that has some
+        // directories in its path that have not been created yet.
+        let Ok(files) = read_dir(d.path()) else {
+            return;
         };
+
         for f in files {
             let p = f.unwrap().path();
             if !metadata(&p).unwrap().is_file() {
