@@ -2,10 +2,7 @@ use std::path::Path;
 
 impl Backend {
     async fn mock_open(&self, uri: &str) {
-        let mut file = File::open(uri).unwrap();
-        let mut file_data = String::new();
-
-        file.read_to_string(&mut file_data).unwrap();
+        let file_data = read_to_string(uri).unwrap();
 
         let path = Path::new(uri).canonicalize().unwrap();
         let uri = Url::from_file_path(path).unwrap();
