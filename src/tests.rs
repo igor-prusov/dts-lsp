@@ -144,7 +144,7 @@ async fn functional() {
         be.mock_open(path).await;
 
         assert_eq!(be.data.fd.size().await, 2);
-        assert_eq!(be.data.fd.n_without_text().await, 1);
+        assert_eq!(be.data.fd.n_with_text().await, 1);
         assert_eq!(be.data.ld.size().await, 2);
         assert_eq!(be.data.rd.size().await, 0);
     }
