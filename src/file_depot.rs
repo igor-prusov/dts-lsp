@@ -141,7 +141,7 @@ impl Data {
     }
 
     #[cfg(test)]
-    fn n_without_text(&self) -> usize {
+    fn n_with_text(&self) -> usize {
         self.entries
             .iter()
             .map(|x| x.1.text.is_some() as usize)
@@ -208,7 +208,7 @@ impl FileDepot {
     }
 
     #[cfg(test)]
-    pub async fn n_without_text(&self) -> usize {
-        self.data.lock().unwrap().n_without_text()
+    pub async fn n_with_text(&self) -> usize {
+        self.data.lock().unwrap().n_with_text()
     }
 }
