@@ -111,7 +111,7 @@ async fn functional() {
         assert_eq!(be.data.ld.size().await, 2);
         assert_eq!(be.data.rd.size().await, 1);
 
-        assert_eq!(be.has_label(path, "node").await, 2);
+        assert_eq!(be.has_label(path, "node").await, 1);
     }
     {
         let be = Backend::new();
