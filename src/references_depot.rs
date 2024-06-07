@@ -90,6 +90,13 @@ impl Data {
     fn size(&self) -> usize {
         self.reference_to_symbols.keys().count()
     }
+
+    async fn dump(&self) {
+        info!("===REFERENCES===");
+        for (k, v) in &self.reference_to_symbols {
+            info!("{} ({}): {}", k.name, k.uri, v.len());
+        }
+    }
 }
 
 pub struct ReferencesDepot {
@@ -129,5 +136,14 @@ impl ReferencesDepot {
     pub async fn size(&self) -> usize {
         let data = self.data.lock().unwrap();
         data.size()
+    }
+
+    pub async fn dump(&self) {
+        {
+            let x = self.data.lock().unwrap();
+            x.clone()
+        }
+        .dump()
+        .await;
     }
 }
