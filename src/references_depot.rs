@@ -1,4 +1,3 @@
-use crate::utils::convert_range;
 use crate::utils::Symbol;
 use crate::FileDepot;
 use crate::{error, info, log_message};
@@ -41,13 +40,13 @@ impl Data {
         }
     }
 
-    fn add_reference(&mut self, name: &str, uri: &Url, range: tree_sitter::Range) {
+    fn add_reference(&mut self, name: &str, uri: &Url, range: Range) {
         let r = Reference::new(uri, name);
         if let Some(ref mut v) = self.reference_to_symbols.get_mut(&r) {
-            assert!(!v.contains(&convert_range(&range)));
-            v.push(convert_range(&range));
+            assert!(!v.contains(&range));
+            v.push(range);
         } else {
-            let v = vec![convert_range(&range)];
+            let v = vec![range];
             self.reference_to_symbols.insert(r, v);
         }
     }
@@ -135,7 +134,7 @@ impl ReferencesDepot {
         }
     }
 
-    pub async fn add_reference(&self, name: &str, uri: &Url, range: tree_sitter::Range) {
+    pub async fn add_reference(&self, name: &str, uri: &Url, range: Range) {
         info!("ReferencesDepot::add_reference()");
         let mut data = self.data.lock().unwrap();
         data.add_reference(name, uri, range);
