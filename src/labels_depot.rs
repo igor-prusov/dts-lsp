@@ -1,7 +1,7 @@
 use crate::utils::convert_range;
 use crate::utils::Symbol;
 use crate::FileDepot;
-use crate::{info, log_message};
+use crate::{error, info, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Mutex;
@@ -70,6 +70,29 @@ impl Data {
         res
     }
 
+    fn rename(&mut self, uri: &Url, old_name: &str, new_name: &str) -> Result<(), String> {
+        let old = self.label_to_symbol.remove_entry(&Label {
+            name: old_name.to_string(),
+            uri: uri.clone(),
+        });
+
+        match old {
+            None => Err(format!("Renaming non-existant label: {old_name}")),
+            Some((old_label, mut range)) => {
+                let new_name_len = u32::try_from(new_name.len()).map_err(|e| format!("{e}"))?;
+                range.end.character = range.start.character + new_name_len;
+                self.label_to_symbol.insert(
+                    Label {
+                        name: new_name.to_string(),
+                        uri: old_label.uri,
+                    },
+                    range,
+                );
+                Ok(())
+            }
+        }
+    }
+
     fn invalidate(&mut self, uri: &Url) {
         let mut v = Vec::new();
 
@@ -134,6 +157,18 @@ impl LabelsDepot {
         info!("LabelsDepot::invalidate()");
         let mut data = self.data.lock().unwrap();
         data.invalidate(uri);
+    }
+
+    pub async fn rename(&self, uri: &Url, old_name: &str, new_name: &str) {
+        let res = {
+            let mut data = self.data.lock().unwrap();
+            data.rename(uri, old_name, new_name)
+        };
+
+        match res {
+            Ok(()) => (),
+            Err(e) => error!("{}", e),
+        }
     }
 
     #[cfg(test)]

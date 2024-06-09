@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::fs::metadata;
 use std::fs::read_dir;
 use std::fs::read_to_string;
+use tower_lsp::jsonrpc::Error;
 use tower_lsp::jsonrpc::Result;
 #[allow(clippy::wildcard_imports)]
 use tower_lsp::lsp_types::*;
@@ -23,6 +25,7 @@ mod tests;
 use file_depot::FileDepot;
 use labels_depot::LabelsDepot;
 use logger::{log_message, Logger};
+use utils::convert_range;
 
 use references_depot::ReferencesDepot;
 
@@ -212,6 +215,12 @@ impl LanguageServer for Backend {
                 )),
                 definition_provider: Some(OneOf::Left(true)),
                 references_provider: Some(OneOf::Left(true)),
+                rename_provider: Some(OneOf::Right(RenameOptions {
+                    prepare_provider: Some(true),
+                    work_done_progress_options: WorkDoneProgressOptions {
+                        work_done_progress: None,
+                    },
+                })),
                 ..ServerCapabilities::default()
             },
             ..Default::default()
@@ -325,6 +334,96 @@ impl LanguageServer for Backend {
             }
         }
         Ok(None)
+    }
+
+    async fn prepare_rename(
+        &self,
+        params: TextDocumentPositionParams,
+    ) -> Result<Option<PrepareRenameResponse>> {
+        let location = params.position;
+        let location = Point::new(location.line as usize, location.character as usize);
+        let uri = params.text_document.uri;
+        let Some(text) = self.data.fd.get_text(&uri).await else {
+            warn!("No text found for file {uri}");
+            return Ok(None);
+        };
+        let mut parser = Parser::new();
+        parser
+            .set_language(&tree_sitter_devicetree::language())
+            .unwrap();
+        let tree = parser.parse(&text, None).unwrap();
+
+        if let Some(node) = tree
+            .root_node()
+            .named_descendant_for_point_range(location, location)
+        {
+            let name = node.utf8_text(text.as_bytes()).unwrap();
+            let range = node.range();
+
+            let labels = self.data.ld.find_label(&uri, name).await;
+            let references = self.data.rd.find_references(&uri, name).await;
+
+            if labels.len() + references.len() > 0 {
+                return Ok(Some(PrepareRenameResponse::Range(convert_range(&range))));
+            }
+        }
+
+        Err(Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams))
+    }
+
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let location = params.text_document_position.position;
+        let location = Point::new(location.line as usize, location.character as usize);
+        let uri = params.text_document_position.text_document.uri;
+        let Some(text) = self.data.fd.get_text(&uri).await else {
+            warn!("No text found for file {uri}");
+            return Ok(None);
+        };
+
+        let mut parser = Parser::new();
+        parser
+            .set_language(&tree_sitter_devicetree::language())
+            .unwrap();
+        let tree = parser.parse(&text, None).unwrap();
+        if let Some(node) = tree
+            .root_node()
+            .named_descendant_for_point_range(location, location)
+        {
+            let name = node.utf8_text(text.as_bytes()).unwrap();
+            let mut result: HashMap<Url, Vec<TextEdit>> = HashMap::new();
+
+            let labels = self.data.ld.find_label(&uri, name).await;
+            let references = self.data.rd.find_references(&uri, name).await;
+
+            for label in &labels {
+                self.data
+                    .ld
+                    .rename(&label.uri, name, &params.new_name)
+                    .await;
+            }
+
+            for reference in &references {
+                self.data
+                    .rd
+                    .rename(&reference.uri, name, &params.new_name)
+                    .await;
+            }
+
+            for symbol in labels.iter().chain(references.iter()) {
+                let e = result.entry(symbol.uri.clone()).or_default();
+                e.push(TextEdit::new(symbol.range, params.new_name.clone()));
+            }
+
+            if !result.is_empty() {
+                return Ok(Some(WorkspaceEdit {
+                    changes: Some(result),
+                    document_changes: None,
+                    change_annotations: None,
+                }));
+            }
+        }
+
+        Err(Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams))
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
