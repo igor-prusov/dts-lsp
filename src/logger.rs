@@ -55,27 +55,27 @@ pub async fn log_message<M: Display>(typ: MessageType, message: M) {
 #[macro_export]
 macro_rules! error {
     ($($args:tt)*) => {
-        log_message(MessageType::ERROR, &format!($($args)*)).await;
+        log_message(MessageType::ERROR, &format!($($args)*)).await
     };
 }
 
 #[macro_export]
 macro_rules! warn {
     ($($args:tt)*) => {
-        log_message(MessageType::WARNING, &format!($($args)*)).await;
+        log_message(MessageType::WARNING, &format!($($args)*)).await
     };
 }
 
 #[macro_export]
 macro_rules! info {
     ($($args:tt)*) => {
-        log_message(MessageType::INFO, &format!($($args)*)).await;
+        log_message(MessageType::INFO, &format!($($args)*)).await
     };
 }
 
 #[macro_export]
 macro_rules! log {
     ($($args:tt)*) => {
-        log_message(MessageType::LOG, &format!($($args)*)).await;
+        log_message(MessageType::LOG, &format!($($args)*)).await
     };
 }
