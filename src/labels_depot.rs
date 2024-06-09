@@ -1,4 +1,3 @@
-use crate::utils::convert_range;
 use crate::utils::Symbol;
 use crate::FileDepot;
 use crate::{error, info, log_message};
@@ -26,13 +25,13 @@ impl Data {
             fd: fd.clone(),
         }
     }
-    fn add_label(&mut self, label: &str, uri: &Url, range: tree_sitter::Range) {
+    fn add_label(&mut self, label: &str, uri: &Url, range: Range) {
         self.label_to_symbol.insert(
             Label {
                 uri: uri.clone(),
                 name: label.to_string(),
             },
-            convert_range(&range),
+            range,
         );
     }
 
@@ -127,7 +126,7 @@ impl LabelsDepot {
         }
     }
 
-    pub async fn add_label(&self, label: &str, uri: &Url, range: tree_sitter::Range) {
+    pub async fn add_label(&self, label: &str, uri: &Url, range: Range) {
         info!("LabelsDepot::add_label()");
         let mut data = self.data.lock().unwrap();
         data.add_label(label, uri, range);

@@ -62,7 +62,10 @@ impl Backend {
         }
 
         for (label, uri, range) in labels {
-            self.data.ld.add_label(label, uri, range).await;
+            self.data
+                .ld
+                .add_label(label, uri, convert_range(&range))
+                .await;
         }
     }
 
@@ -128,7 +131,10 @@ impl Backend {
 
         for (label, uri, range) in references {
             info!("LABEL = {label}");
-            self.data.rd.add_reference(label, uri, range).await;
+            self.data
+                .rd
+                .add_reference(label, uri, convert_range(&range))
+                .await;
         }
     }
 
