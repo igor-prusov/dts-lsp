@@ -183,3 +183,14 @@ impl ReferencesDepot {
         .await;
     }
 }
+
+#[cfg(test)]
+impl PartialEq for ReferencesDepot {
+    fn eq(&self, other: &Self) -> bool {
+        let me = self.data.lock().unwrap().clone();
+        let other = other.data.lock().unwrap().clone();
+
+        //TODO: make vectors sorted
+        me.reference_to_symbols == other.reference_to_symbols
+    }
+}

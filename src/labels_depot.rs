@@ -176,3 +176,12 @@ impl LabelsDepot {
         data.size()
     }
 }
+
+#[cfg(test)]
+impl PartialEq for LabelsDepot {
+    fn eq(&self, other: &Self) -> bool {
+        let me = self.data.lock().unwrap();
+        let other = other.data.lock().unwrap();
+        me.label_to_symbol == other.label_to_symbol
+    }
+}
