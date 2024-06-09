@@ -76,10 +76,37 @@ fn make_url(path: &str) -> Url {
     Url::from_file_path(path).unwrap()
 }
 
+fn make_range(begin: (u32, u32), end: (u32, u32)) -> Range {
+    let begin = Position::new(begin.0, begin.1);
+    let end = Position::new(end.0, end.1);
+    Range::new(begin, end)
+}
+
+impl LabelsDepot {
+    async fn new_expected(fd: &FileDepot, data: Vec<(&str, &str, Range)>) -> Self {
+        let ld = LabelsDepot::new(fd);
+        for x in data {
+            ld.add_label(x.0, &make_url(x.1), x.2).await;
+        }
+        ld
+    }
+}
+
+impl ReferencesDepot {
+    async fn new_expected(fd: &FileDepot, data: Vec<(&str, &str, Range)>) -> Self {
+        let rd = ReferencesDepot::new(fd);
+        for x in data {
+            rd.add_reference(x.0, &make_url(x.1), x.2).await;
+        }
+        rd
+    }
+}
+
 #[derive(Debug, PartialEq)]
 struct Changes(Result<Option<WorkspaceEdit>>);
 
 impl Changes {
+    // TODO: add new_expected
     fn new() -> Self {
         Self(Ok(Some(WorkspaceEdit::new(HashMap::new()))))
     }
@@ -253,8 +280,23 @@ async fn functional() {
         be.mock_open(path).await;
 
         assert_eq!(be.data.fd.size().await, 3);
-        assert_eq!(be.data.ld.size().await, 2);
-        assert_eq!(be.data.rd.size().await, 1);
+
+        let expected_ld = LabelsDepot::new_expected(
+            &be.data.fd,
+            vec![
+                ("node", "tests/2/a.dts", make_range((3, 1), (3, 5))),
+                ("node", "tests/2/b.dts", make_range((2, 1), (2, 5))),
+            ],
+        )
+        .await;
+        assert!(be.data.ld == expected_ld);
+
+        let expected_rd = ReferencesDepot::new_expected(
+            &be.data.fd,
+            vec![("node", "tests/2/common.dtsi", make_range((2, 10), (2, 14)))],
+        )
+        .await;
+        assert!(be.data.rd == expected_rd);
 
         let res = be.mock_rename_prepare(path, Position::new(3, 1)).await;
         assert!(res.is_ok());
@@ -266,8 +308,25 @@ async fn functional() {
         assert_eq!(expected.0, res);
 
         assert_eq!(be.data.fd.size().await, 3);
-        assert_eq!(be.data.ld.size().await, 2);
-        assert_eq!(be.data.rd.size().await, 1);
+
+        let expected_ld = LabelsDepot::new_expected(
+            &be.data.fd,
+            vec![
+                ("changed", "tests/2/a.dts", make_range((3, 1), (3, 8))),
+                ("node", "tests/2/b.dts", make_range((2, 1), (2, 5))),
+            ],
+        )
+        .await;
+        assert!(be.data.ld == expected_ld);
+
+        #[rustfmt::skip]
+        let expected_rd = ReferencesDepot::new_expected(
+            &be.data.fd,
+            vec![
+            ("changed", "tests/2/common.dtsi", make_range((2, 10), (2, 17))),
+            ],
+        ).await;
+        assert!(be.data.rd == expected_rd);
     }
     {
         let be = Backend::new();
@@ -276,8 +335,23 @@ async fn functional() {
         be.mock_open(path).await;
 
         assert_eq!(be.data.fd.size().await, 3);
-        assert_eq!(be.data.ld.size().await, 2);
-        assert_eq!(be.data.rd.size().await, 1);
+
+        let expected_ld = LabelsDepot::new_expected(
+            &be.data.fd,
+            vec![
+                ("node", "tests/2/a.dts", make_range((3, 1), (3, 5))),
+                ("node", "tests/2/b.dts", make_range((2, 1), (2, 5))),
+            ],
+        )
+        .await;
+        assert!(be.data.ld == expected_ld);
+
+        let expected_rd = ReferencesDepot::new_expected(
+            &be.data.fd,
+            vec![("node", "tests/2/common.dtsi", make_range((2, 10), (2, 14)))],
+        )
+        .await;
+        assert!(be.data.rd == expected_rd);
 
         let res = be.mock_rename_prepare(path, Position::new(2, 10)).await;
         assert!(res.is_ok());
@@ -292,5 +366,24 @@ async fn functional() {
         assert_eq!(be.data.fd.size().await, 3);
         assert_eq!(be.data.ld.size().await, 2);
         assert_eq!(be.data.rd.size().await, 1);
+
+        let expected_ld = LabelsDepot::new_expected(
+            &be.data.fd,
+            vec![
+                ("changed", "tests/2/a.dts", make_range((3, 1), (3, 8))),
+                ("changed", "tests/2/b.dts", make_range((2, 1), (2, 8))),
+            ],
+        )
+        .await;
+        assert!(be.data.ld == expected_ld);
+
+        #[rustfmt::skip]
+        let expected_rd = ReferencesDepot::new_expected(
+            &be.data.fd,
+            vec![
+            ("changed", "tests/2/common.dtsi", make_range((2, 10), (2, 17))),
+            ],
+        ).await;
+        assert!(be.data.rd == expected_rd);
     }
 }
