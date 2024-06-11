@@ -415,9 +415,14 @@ impl LanguageServer for Backend {
                     .await;
             }
 
+            // TODO: check that labels in single file are ordered from bottom to top
             for symbol in labels.iter().chain(references.iter()) {
                 let e = result.entry(symbol.uri.clone()).or_default();
                 e.push(TextEdit::new(symbol.range, params.new_name.clone()));
+            }
+
+            for (uri, edits) in &result {
+                self.data.fd.apply_edits(uri, edits).await;
             }
 
             if !result.is_empty() {
