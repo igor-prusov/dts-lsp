@@ -69,6 +69,16 @@ impl Backend {
 
         self.rename(params).await
     }
+
+    async fn verify_file(&self, uri: &Url, expected_file: &str) {
+        let text = self.data.fd.get_text(uri).await.unwrap();
+        let expected_text = read_to_string(expected_file).unwrap();
+        assert_eq!(text, expected_text);
+    }
+    async fn test_edit(&self, uri: &Url, edit: TextEdit, expected_file: &str) {
+        self.data.fd.apply_edits(uri, &vec![edit]).await;
+        self.verify_file(uri, expected_file).await;
+    }
 }
 
 fn make_url(path: &str) -> Url {
@@ -385,5 +395,49 @@ async fn functional() {
             ],
         ).await;
         assert!(be.data.rd == expected_rd);
+    }
+    {
+        let be = Backend::new();
+        let path = "tests/5/before.dts";
+
+        be.mock_open(path).await;
+        let edits: Vec<TextEdit> = vec![
+            TextEdit::new(make_range((3, 21), (3, 31)), "lbl".to_string()),
+            TextEdit::new(make_range((1, 1), (1, 11)), "lbl".to_string()),
+            TextEdit::new(
+                make_range((3, 21), (3, 24)),
+                "very_long_label_value".to_string(),
+            ),
+            TextEdit::new(
+                make_range((1, 1), (1, 4)),
+                "very_long_label_value".to_string(),
+            ),
+        ];
+
+        for (i, edit) in edits.iter().enumerate() {
+            let index = i + 1;
+            let expected_file = format!("tests/5/after-{index}.dts");
+            be.test_edit(&make_url(path), edit.clone(), &expected_file)
+                .await;
+        }
+    }
+    {
+        let be = Backend::new();
+        let path = "tests/5/before.dts";
+
+        be.mock_open(path).await;
+
+        let _ = be.mock_rename(path, Position::new(1, 1), "lbl").await;
+        be.verify_file(&make_url(path), "tests/5/after-2.dts").await;
+
+        let _ = be
+            .mock_rename(path, Position::new(1, 1), "some_label")
+            .await;
+        be.verify_file(&make_url(path), "tests/5/before.dts").await;
+
+        let _ = be
+            .mock_rename(path, Position::new(1, 1), "very_long_label_value")
+            .await;
+        be.verify_file(&make_url(path), "tests/5/after-4.dts").await;
     }
 }

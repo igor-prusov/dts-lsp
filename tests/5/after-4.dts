@@ -1,0 +1,7 @@
+/ {
+	very_long_label_value: node_a{};
+	node_b {
+		some_reference = <&very_long_label_value>;
+	};
+};
+
