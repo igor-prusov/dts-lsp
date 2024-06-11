@@ -78,7 +78,6 @@ impl Data {
         e.included_by.push(uri.clone());
     }
 
-    //TODO: -> HashSet<Url> or Make sure no repetition
     fn get_component(&self, uri: &Url) -> Vec<Url> {
         // Process includes
         let mut to_visit = vec![uri.clone()];
@@ -122,7 +121,10 @@ impl Data {
             }
             visited.insert(uri);
         }
-        res
+
+        //TODO: Fix this ugly hack
+        let res: HashSet<Url> = res.iter().cloned().collect();
+        res.iter().cloned().collect()
     }
 
     async fn dump(&self) {
