@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tower_lsp::lsp_types::{MessageType, Url};
+use tower_lsp::lsp_types::{MessageType, TextEdit, Url};
 
 #[derive(Default, Clone)]
 struct FileEntry {
@@ -28,6 +28,29 @@ impl Data {
     fn new() -> Data {
         Data {
             entries: HashMap::new(),
+        }
+    }
+
+    fn apply_edits(&mut self, uri: &Url, edits: &Vec<TextEdit>) {
+        for edit in edits {
+            // TODO: remove or_default
+            let e = self.entries.entry(uri.clone()).or_default();
+            let mut new_text = String::new();
+            if let Some(text) = &e.text {
+                for (n, line) in text.lines().enumerate() {
+                    let mut line = line.to_string();
+                    if n == edit.range.start.line as usize {
+                        // FIXME: should be able to handle multiline edits
+                        assert_eq!(edit.range.start.line, edit.range.end.line);
+                        let x =
+                            edit.range.start.character as usize..edit.range.end.character as usize;
+                        line.replace_range(x, &edit.new_text);
+                    }
+                    new_text.push_str(&line);
+                    new_text.push('\n');
+                }
+                e.text = Some(new_text);
+            }
         }
     }
 
@@ -184,6 +207,12 @@ impl FileDepot {
     pub async fn get_component(&self, uri: &Url) -> Vec<Url> {
         info!("FileDepot::get_component()");
         self.data.lock().unwrap().get_component(uri)
+    }
+
+    pub async fn apply_edits(&self, uri: &Url, edits: &Vec<TextEdit>) {
+        info!("FileDepot::apply_edits()");
+        let mut data = self.data.lock().unwrap();
+        data.apply_edits(uri, edits);
     }
 
     #[cfg(test)]
