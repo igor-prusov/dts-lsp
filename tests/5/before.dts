@@ -1,0 +1,7 @@
+/ {
+	some_label: node_a{};
+	node_b {
+		some_reference = <&some_label>;
+	};
+};
+
