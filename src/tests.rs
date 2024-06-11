@@ -70,6 +70,28 @@ impl Backend {
         self.rename(params).await
     }
 
+    async fn mock_refrences(&self, uri: &str, pos: Position) -> Result<Option<Vec<Location>>> {
+        let path = Path::new(uri).canonicalize().unwrap();
+        let uri = Url::from_file_path(path).unwrap();
+        let params = ReferenceParams {
+            context: ReferenceContext {
+                include_declaration: false,
+            },
+            text_document_position: TextDocumentPositionParams {
+                position: pos,
+                text_document: TextDocumentIdentifier::new(uri),
+            },
+            work_done_progress_params: WorkDoneProgressParams {
+                work_done_token: None,
+            },
+            partial_result_params: PartialResultParams {
+                partial_result_token: None,
+            },
+        };
+
+        self.references(params).await
+    }
+
     async fn verify_file(&self, uri: &Url, expected_file: &str) {
         let text = self.data.fd.get_text(uri).await.unwrap();
         let expected_text = read_to_string(expected_file).unwrap();
@@ -439,5 +461,24 @@ async fn functional() {
             .mock_rename(path, Position::new(1, 1), "very_long_label_value")
             .await;
         be.verify_file(&make_url(path), "tests/5/after-4.dts").await;
+    }
+    {
+        // find references breaks after buffer is changed and restored
+        let be = Backend::new();
+        let path = "tests/2/a.dts";
+        let uri = make_url(path);
+
+        be.mock_open(path).await;
+        be.data.fd.apply_edits(&uri, &vec![]).await;
+        let res = be.mock_refrences(path, Position::new(3, 1)).await;
+        assert_eq!(res.unwrap().unwrap().len(), 1);
+
+        let old_file_contents = be.data.fd.get_text(&uri).await.unwrap();
+        be.mock_change(path, "".to_string()).await;
+        be.mock_change(path, old_file_contents).await;
+
+        let res = be.mock_refrences(path, Position::new(3, 1)).await;
+        info!("{}", be.data.fd.get_text(&make_url(path)).await.unwrap());
+        assert_eq!(res.unwrap().unwrap().len(), 1);
     }
 }
