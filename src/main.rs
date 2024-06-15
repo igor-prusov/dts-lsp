@@ -142,8 +142,12 @@ impl Backend {
         if !utils::extension_one_of(uri, &["dts", "dtsi"]) {
             return Vec::new();
         }
+        let Ok(path) = uri.to_file_path() else {
+            error!("Invalid url {}", uri);
+            return Vec::new();
+        };
 
-        let text = match text.map_or(read_to_string(uri.path()), Ok) {
+        let text = match text.map_or(read_to_string(path), Ok) {
             Ok(x) => x,
             Err(e) => {
                 warn!("{}: {}", uri, e.kind());
@@ -173,10 +177,14 @@ impl Backend {
 
     async fn open_neighbours(&self, uri: &Url) {
         let d = uri.join(".").unwrap();
+        let Ok(path) = d.to_file_path() else {
+            error!("Invalid url {}", d);
+            return;
+        };
 
         // Skip if client has opened a buffer for a file that has some
         // directories in its path that have not been created yet.
-        let Ok(files) = read_dir(d.path()) else {
+        let Ok(files) = read_dir(path) else {
             return;
         };
 
