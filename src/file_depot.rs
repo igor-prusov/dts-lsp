@@ -24,6 +24,27 @@ pub enum InsertResult {
     Modified,
 }
 
+struct MyTextEdit<'a>(&'a TextEdit);
+impl<'a> MyTextEdit<'a> {
+    fn new_text(&self) -> &str {
+        &self.0.new_text
+    }
+
+    fn lines_range(&self) -> (usize, usize) {
+        (
+            self.0.range.start.line as usize,
+            self.0.range.end.line as usize,
+        )
+    }
+
+    fn chars_range(&self) -> (usize, usize) {
+        (
+            self.0.range.start.character as usize,
+            self.0.range.end.character as usize,
+        )
+    }
+}
+
 impl Data {
     fn new() -> Data {
         Data {
@@ -33,20 +54,30 @@ impl Data {
 
     fn apply_edits(&mut self, uri: &Url, edits: &Vec<TextEdit>) -> Result<(), String> {
         for edit in edits {
+            let edit = MyTextEdit(edit);
             let Some(e) = self.entries.get_mut(uri) else {
                 return Err("Failed to apply edits".to_string());
             };
             let mut new_text = String::new();
             if let Some(text) = &e.text {
+                let (start_line, end_line) = edit.lines_range();
+                let (start_char, end_char) = edit.chars_range();
+                let multiline = start_line != end_line;
+
                 for (n, line) in text.split_inclusive('\n').enumerate() {
                     let mut line = line.to_string();
-                    if n == edit.range.start.line as usize {
-                        // FIXME: should be able to handle multiline edits
-                        assert_eq!(edit.range.start.line, edit.range.end.line);
-                        let x =
-                            edit.range.start.character as usize..edit.range.end.character as usize;
-                        line.replace_range(x, &edit.new_text);
+
+                    #[allow(clippy::if_same_then_else)]
+                    if n == start_line && !multiline {
+                        line.replace_range(start_char..end_char, edit.new_text());
+                    } else if n == start_line && multiline {
+                        line.replace_range(start_char.., "");
+                    } else if (start_line + 1..end_line).contains(&n) {
+                        continue;
+                    } else if n == end_line {
+                        line.replace_range(..end_char, edit.new_text());
                     }
+
                     new_text.push_str(&line);
                 }
                 e.text = Some(new_text);
