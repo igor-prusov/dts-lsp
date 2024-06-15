@@ -92,14 +92,21 @@ impl Backend {
         self.references(params).await
     }
 
-    async fn verify_file(&self, uri: &Url, expected_file: &str) {
+    async fn verify_file(&self, uri: &Url, expected_file: &str) -> bool {
         let text = self.data.fd.get_text(uri).await.unwrap();
         let expected_text = read_to_string(expected_file).unwrap();
-        assert_eq!(text, expected_text);
+        let res = text == expected_text;
+
+        if !res {
+            error!("---\ngot:\n{}\nexpected:\n{}\n---\n", text, expected_text);
+        }
+
+        res
     }
     async fn test_edit(&self, uri: &Url, edit: TextEdit, expected_file: &str) {
         self.data.fd.apply_edits(uri, &vec![edit]).await;
-        self.verify_file(uri, expected_file).await;
+        let res = self.verify_file(uri, expected_file).await;
+        assert!(res);
     }
 }
 
@@ -449,17 +456,17 @@ async fn functional() {
         be.mock_open(path).await;
 
         let _ = be.mock_rename(path, Position::new(1, 1), "lbl").await;
-        be.verify_file(&make_url(path), "tests/5/after-2.dts").await;
+        assert!(be.verify_file(&make_url(path), "tests/5/after-2.dts").await);
 
         let _ = be
             .mock_rename(path, Position::new(1, 1), "some_label")
             .await;
-        be.verify_file(&make_url(path), "tests/5/before.dts").await;
+        assert!(be.verify_file(&make_url(path), "tests/5/before.dts").await);
 
         let _ = be
             .mock_rename(path, Position::new(1, 1), "very_long_label_value")
             .await;
-        be.verify_file(&make_url(path), "tests/5/after-4.dts").await;
+        assert!(be.verify_file(&make_url(path), "tests/5/after-4.dts").await);
     }
     {
         // find references breaks after buffer is changed and restored
@@ -479,5 +486,24 @@ async fn functional() {
         let res = be.mock_refrences(path, Position::new(3, 1)).await;
         info!("{}", be.data.fd.get_text(&make_url(path)).await.unwrap());
         assert_eq!(res.unwrap().unwrap().len(), 1);
+    }
+    {
+        let be = Backend::new();
+        let path = "tests/apply_edits/file.dts";
+        let uri = make_url(path);
+
+        let change1 = read_to_string("tests/apply_edits/change1.txt").unwrap();
+        let change2 = read_to_string("tests/apply_edits/change2.txt").unwrap();
+
+        let edits = vec![
+            TextEdit::new(make_range((6, 1), (6, 13)), change2),
+            TextEdit::new(make_range((4, 1), (5, 3)), change1),
+            TextEdit::new(make_range((1, 1), (1, 9)), "n1".to_string()),
+        ];
+
+        be.mock_open(path).await;
+        be.data.fd.apply_edits(&uri, &edits).await;
+
+        assert!(be.verify_file(&uri, "tests/apply_edits/expected.dts").await);
     }
 }
