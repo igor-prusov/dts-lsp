@@ -37,7 +37,7 @@ impl Data {
             let e = self.entries.entry(uri.clone()).or_default();
             let mut new_text = String::new();
             if let Some(text) = &e.text {
-                for (n, line) in text.lines().enumerate() {
+                for (n, line) in text.split_inclusive('\n').enumerate() {
                     let mut line = line.to_string();
                     if n == edit.range.start.line as usize {
                         // FIXME: should be able to handle multiline edits
@@ -47,7 +47,6 @@ impl Data {
                         line.replace_range(x, &edit.new_text);
                     }
                     new_text.push_str(&line);
-                    new_text.push('\n');
                 }
                 e.text = Some(new_text);
             }
