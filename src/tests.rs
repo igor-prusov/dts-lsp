@@ -303,7 +303,6 @@ async fn functional() {
         assert_eq!(expected.0, res);
     }
     {
-        // TODO: test rd and ld after rename
         // TODO: test single file, multiple references
         // TODO: probably b.dts should change as well
         let be = Backend::new();

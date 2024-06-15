@@ -1,4 +1,4 @@
-use crate::{info, log_message};
+use crate::{error, info, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -31,10 +31,11 @@ impl Data {
         }
     }
 
-    fn apply_edits(&mut self, uri: &Url, edits: &Vec<TextEdit>) {
+    fn apply_edits(&mut self, uri: &Url, edits: &Vec<TextEdit>) -> Result<(), String> {
         for edit in edits {
-            // TODO: remove or_default
-            let e = self.entries.entry(uri.clone()).or_default();
+            let Some(e) = self.entries.get_mut(uri) else {
+                return Err("Failed to apply edits".to_string());
+            };
             let mut new_text = String::new();
             if let Some(text) = &e.text {
                 for (n, line) in text.split_inclusive('\n').enumerate() {
@@ -51,6 +52,7 @@ impl Data {
                 e.text = Some(new_text);
             }
         }
+        Ok(())
     }
 
     fn insert(&mut self, uri: &Url, text: &str) -> InsertResult {
@@ -212,8 +214,12 @@ impl FileDepot {
 
     pub async fn apply_edits(&self, uri: &Url, edits: &Vec<TextEdit>) {
         info!("FileDepot::apply_edits()");
-        let mut data = self.data.lock().unwrap();
-        data.apply_edits(uri, edits);
+        if let Err(e) = {
+            let mut data = self.data.lock().unwrap();
+            data.apply_edits(uri, edits)
+        } {
+            error!("{}", e);
+        }
     }
 
     #[cfg(test)]
