@@ -27,6 +27,10 @@ jobs:
             os: macos-latest
             target: x86_64-apple-darwin
 
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+
     steps:
     - uses: actions/checkout@v3
     - name: Build
