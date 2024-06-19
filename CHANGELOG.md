@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2024-06-19
+
+### Features
+
+- Add labels rename support
+
+### Bug Fixes
+
+- Don't panic when handling non-existent URLs
+- Check extension for all files
+- Limit label search by connected component
+- Update file_depot data on rename
+- File_depot: skip repeated urls when building component
+- Use portable to_file_path() Url method
+- Keep \r characters when applying text edits
+
+### CI
+
+- Enable clippy::cargo check
+- Run tests on macos-x86_64
+- Add Windows build
+- Move linters to separate job
+- Updade release job
+
+### Tests
+
+- Refactor functional tests
+- Add bad extension test case
+- Add test for handling non-existent include
+- Fix expected labels count
+- Add rename tests
+- Add more rigorous labels and references checks
+- Add some label rename() tests
+- Add reproducer for repetitions in references results
+- Add tests for multiline edit
+
 ## [0.1.3] - 2024-05-29
 
 ### 
