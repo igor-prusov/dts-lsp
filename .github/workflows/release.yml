@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Write Changelog
-        run: git cliff --latest -o log.txt
+        run: git cliff --unreleased -o log.txt
 
       - name: Read Changelog
         run: cat log.txt
