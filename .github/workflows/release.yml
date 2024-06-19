@@ -1,19 +1,43 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
    tags:
      # Regex for a version number such as 0.2.1
      - '*'
+
 permissions:
   contents: write
-  
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install cliff
+        run: cargo install git-cliff
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write Changelog
+        run: git cliff --latest -o log.txt
+
+      - name: Read Changelog
+        run: cat log.txt
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          body_path: log.txt
+
   build-and-upload:
     name: Build and upload
+    needs: changelog
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -22,49 +46,50 @@ jobs:
           - build: liunx
             os: ubuntu-latest
             target: x86_64-unknown-linux-musl
+            dependencies: sudo apt install musl-tools
+            binary_name: dts-lsp
 
           - build: macos
             os: macos-latest
             target: x86_64-apple-darwin
+            dependencies:
+            binary_name: dts-lsp
+
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            dependencies:
+            binary_name: dts-lsp.exe
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get release version
         shell: bash
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-      
-      - name: Install Rust
-        # Or @nightly if you want
-        uses: dtolnay/rust-toolchain@stable
-        # Arguments to pass in
-        with:
-          # Make Rust compile to our target (defined in the matrix)
-          targets: ${{ matrix.target }}
-  
+
+      - name: Install dependencies
+        run: ${{ matrix.dependencies }}
+
+      - name: Add rustup target
+        run: rustup target add ${{ matrix.target }}
+
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --verbose --release --target ${{ matrix.target }}
+        run: cargo build --verbose --release --target ${{ matrix.target }}
 
       - name: Build archive
         shell: bash
         run: |
-          binary_name="dts-lsp"
+          release_name="dts-lsp-${{ env.VERSION }}-${{ matrix.target }}"
+          tar -czf "$release_name.tar.gz" -C target/${{ matrix.target }}/release "${{ matrix.binary_name }}"
 
-          dirname="$binary_name-${{ env.VERSION }}-${{ matrix.target }}"
-          mkdir "$dirname"
-          mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
-
-          tar -czf "$dirname.tar.gz" "$dirname"
-          echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
+          echo "ASSET=$release_name.tar.gz" >> $GITHUB_ENV
 
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
+          draft: true
           files: |
             ${{ env.ASSET }}
 
