@@ -12,11 +12,11 @@
 
 
 An LSP for DTS files built on top of [tree-sitter-devicetree](https://github.com/joelspadin/tree-sitter-devicetree) grammar.
-## Features
-For now the main goal is to support jumping around DTS labels. The following is a list of implemented and intended features:
+## Features and Roadmap
 - [x] Go to label definition
 - [x] Find references to label
 - [x] Handle editor buffer changes
+- [x] Rename labels/references
 
 ## Installation
 ```sh
