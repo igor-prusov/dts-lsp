@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 0
 
       - name: Write Changelog
-        run: git cliff --unreleased -o log.txt
+        run: git cliff --latest -o log.txt
 
       - name: Read Changelog
         run: cat log.txt
