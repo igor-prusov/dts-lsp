@@ -22,6 +22,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Write Changelog
         run: git cliff --unreleased -o log.txt
