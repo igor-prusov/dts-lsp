@@ -13,8 +13,7 @@ env:
   RUSTFLAGS: "-Dwarnings"
 
 jobs:
-  build:
-
+  tests:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -32,12 +31,23 @@ jobs:
             target: x86_64-pc-windows-msvc
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v3
+
     - name: Build
       run: cargo build --verbose
-    - name: Check format
-      run: cargo fmt --check
-    - name: Clippy
-      run: cargo clippy -- -D clippy::pedantic -D clippy::cargo
+
     - name: Run tests
       run: cargo test --verbose
+
+  lints:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Check format
+      run: cargo fmt --check
+
+    - name: Clippy
+      run: cargo clippy -- -D clippy::pedantic -D clippy::cargo
