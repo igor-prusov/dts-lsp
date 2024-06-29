@@ -30,7 +30,7 @@ impl Backend {
     }
 
     async fn has_label(&self, path: &str, label: &str) -> usize {
-        self.data.ld.find_label(&make_url(path), label).await.len()
+        self.data.ld.find_label(&make_url(path), label).len()
     }
 
     async fn mock_rename_prepare(
@@ -93,7 +93,7 @@ impl Backend {
     }
 
     async fn verify_file(&self, uri: &Url, expected_file: &str) -> bool {
-        let text = self.data.fd.get_text(uri).await.unwrap();
+        let text = self.data.fd.get_text(uri).unwrap();
         let expected_text = read_to_string(expected_file).unwrap();
         let res = text == expected_text;
 
@@ -104,7 +104,7 @@ impl Backend {
         res
     }
     async fn test_edit(&self, uri: &Url, edit: TextEdit, expected_file: &str) {
-        self.data.fd.apply_edits(uri, &vec![edit]).await;
+        self.data.fd.apply_edits(uri, &vec![edit]);
         let res = self.verify_file(uri, expected_file).await;
         assert!(res);
     }
@@ -125,7 +125,7 @@ impl LabelsDepot {
     async fn new_expected(fd: &FileDepot, data: Vec<(&str, &str, Range)>) -> Self {
         let ld = LabelsDepot::new(fd);
         for x in data {
-            ld.add_label(x.0, &make_url(x.1), x.2).await;
+            ld.add_label(x.0, &make_url(x.1), x.2);
         }
         ld
     }
@@ -135,7 +135,7 @@ impl ReferencesDepot {
     async fn new_expected(fd: &FileDepot, data: Vec<(&str, &str, Range)>) -> Self {
         let rd = ReferencesDepot::new(fd);
         for x in data {
-            rd.add_reference(x.0, &make_url(x.1), x.2).await;
+            rd.add_reference(x.0, &make_url(x.1), x.2)
         }
         rd
     }
@@ -475,16 +475,16 @@ async fn functional() {
         let uri = make_url(path);
 
         be.mock_open(path).await;
-        be.data.fd.apply_edits(&uri, &vec![]).await;
+        be.data.fd.apply_edits(&uri, &vec![]);
         let res = be.mock_refrences(path, Position::new(3, 1)).await;
         assert_eq!(res.unwrap().unwrap().len(), 1);
 
-        let old_file_contents = be.data.fd.get_text(&uri).await.unwrap();
+        let old_file_contents = be.data.fd.get_text(&uri).unwrap();
         be.mock_change(path, "".to_string()).await;
         be.mock_change(path, old_file_contents).await;
 
         let res = be.mock_refrences(path, Position::new(3, 1)).await;
-        info!("{}", be.data.fd.get_text(&make_url(path)).await.unwrap());
+        info!("{}", be.data.fd.get_text(&make_url(path)).unwrap());
         assert_eq!(res.unwrap().unwrap().len(), 1);
     }
     {
@@ -502,7 +502,7 @@ async fn functional() {
         ];
 
         be.mock_open(path).await;
-        be.data.fd.apply_edits(&uri, &edits).await;
+        be.data.fd.apply_edits(&uri, &edits);
 
         assert!(be.verify_file(&uri, "tests/apply_edits/expected.dts").await);
     }

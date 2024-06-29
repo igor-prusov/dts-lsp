@@ -40,13 +40,13 @@ impl Data {
         self.label_to_symbol.keys().count()
     }
 
-    async fn find_label(&self, uri: &Url, label: &str) -> Vec<Symbol> {
+    fn find_label(&self, uri: &Url, label: &str) -> Vec<Symbol> {
         let mut visited = HashSet::new();
         let mut to_visit = vec![uri.clone()];
         let mut res = Vec::new();
 
-        self.fd.dump().await;
-        let v = self.fd.get_component(uri).await;
+        self.fd.dump();
+        let v = self.fd.get_component(uri);
         for f in &v {
             if !visited.contains(f) {
                 to_visit.push(f.clone());
@@ -106,7 +106,7 @@ impl Data {
         }
     }
 
-    async fn dump(&self) {
+    fn dump(&self) {
         info!("====== (labels) ======");
         for k in self.label_to_symbol.keys() {
             info!("url: {}: {}", k.uri, k.name);
@@ -126,39 +126,37 @@ impl LabelsDepot {
         }
     }
 
-    pub async fn add_label(&self, label: &str, uri: &Url, range: Range) {
+    pub fn add_label(&self, label: &str, uri: &Url, range: Range) {
         info!("LabelsDepot::add_label()");
         let mut data = self.data.lock().unwrap();
         data.add_label(label, uri, range);
     }
 
-    pub async fn find_label(&self, uri: &Url, label: &str) -> Vec<Symbol> {
+    pub fn find_label(&self, uri: &Url, label: &str) -> Vec<Symbol> {
         info!("LabelsDepot::find_label()");
         {
             let data = self.data.lock().unwrap();
             data.clone()
         }
         .find_label(uri, label)
-        .await
     }
 
-    pub async fn dump(&self) {
+    pub fn dump(&self) {
         info!("LabelsDepot::dump()");
         {
             let lock = self.data.lock().unwrap();
             lock.clone()
         }
-        .dump()
-        .await;
+        .dump();
     }
 
-    pub async fn invalidate(&self, uri: &Url) {
+    pub fn invalidate(&self, uri: &Url) {
         info!("LabelsDepot::invalidate()");
         let mut data = self.data.lock().unwrap();
         data.invalidate(uri);
     }
 
-    pub async fn rename(&self, uri: &Url, old_name: &str, new_name: &str) {
+    pub fn rename(&self, uri: &Url, old_name: &str, new_name: &str) {
         let res = {
             let mut data = self.data.lock().unwrap();
             data.rename(uri, old_name, new_name)

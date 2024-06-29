@@ -51,11 +51,11 @@ impl Data {
         }
     }
 
-    async fn find_references(&self, uri: &Url, name: &str) -> Vec<Symbol> {
+    fn find_references(&self, uri: &Url, name: &str) -> Vec<Symbol> {
         let mut to_visit = vec![uri.clone()];
         let mut visited = HashSet::new();
         let mut res = Vec::new();
-        let v = self.fd.get_component(uri).await;
+        let v = self.fd.get_component(uri);
         for f in &v {
             if !visited.contains(f) {
                 to_visit.push(f.clone());
@@ -115,7 +115,7 @@ impl Data {
         self.reference_to_symbols.keys().count()
     }
 
-    async fn dump(&self) {
+    fn dump(&self) {
         info!("===REFERENCES===");
         for (k, v) in &self.reference_to_symbols {
             info!("{} ({}): {}", k.name, k.uri, v.len());
@@ -134,29 +134,28 @@ impl ReferencesDepot {
         }
     }
 
-    pub async fn add_reference(&self, name: &str, uri: &Url, range: Range) {
+    pub fn add_reference(&self, name: &str, uri: &Url, range: Range) {
         info!("ReferencesDepot::add_reference()");
         let mut data = self.data.lock().unwrap();
         data.add_reference(name, uri, range);
     }
 
-    pub async fn find_references(&self, uri: &Url, name: &str) -> Vec<Symbol> {
+    pub fn find_references(&self, uri: &Url, name: &str) -> Vec<Symbol> {
         info!("ReferencesDepot::find_references()");
         {
             let x = self.data.lock().unwrap();
             x.clone()
         }
         .find_references(uri, name)
-        .await
     }
 
-    pub async fn invalidate(&self, uri: &Url) {
+    pub fn invalidate(&self, uri: &Url) {
         info!("ReferencesDepot::invalidate()");
         let mut data = self.data.lock().unwrap();
         data.invalidate(uri);
     }
 
-    pub async fn rename(&self, uri: &Url, old_name: &str, new_name: &str) {
+    pub fn rename(&self, uri: &Url, old_name: &str, new_name: &str) {
         let res = {
             let mut data = self.data.lock().unwrap();
             data.rename(uri, old_name, new_name)
@@ -174,13 +173,12 @@ impl ReferencesDepot {
         data.size()
     }
 
-    pub async fn dump(&self) {
+    pub fn dump(&self) {
         {
             let x = self.data.lock().unwrap();
             x.clone()
         }
-        .dump()
-        .await;
+        .dump();
     }
 }
 

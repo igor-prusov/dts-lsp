@@ -1,4 +1,3 @@
-#![allow(clippy::unused_async)]
 use std::collections::HashMap;
 use std::fs::metadata;
 use std::fs::read_dir;
@@ -43,7 +42,7 @@ impl Backend {
         }
     }
 
-    async fn process_labels(&self, tree: &Tree, uri: &Url, text: &str) {
+    fn process_labels(&self, tree: &Tree, uri: &Url, text: &str) {
         let mut cursor = QueryCursor::new();
 
         let q = Query::new(
@@ -63,14 +62,11 @@ impl Backend {
         }
 
         for (label, uri, range) in labels {
-            self.data
-                .ld
-                .add_label(label, uri, convert_range(&range))
-                .await;
+            self.data.ld.add_label(label, uri, convert_range(&range));
         }
     }
 
-    async fn process_includes(&self, tree: &Tree, uri: &Url, text: &str) -> Vec<Url> {
+    fn process_includes(&self, tree: &Tree, uri: &Url, text: &str) -> Vec<Url> {
         let mut cursor = QueryCursor::new();
         let q = Query::new(
             &tree_sitter_devicetree::language(),
@@ -106,12 +102,12 @@ impl Backend {
             info!("{}", &msg);
         }
         for (uri, new_url) in includes {
-            self.data.fd.add_include(uri, &new_url).await;
+            self.data.fd.add_include(uri, &new_url);
         }
         v
     }
 
-    async fn process_references(&self, tree: &Tree, uri: &Url, text: &str) {
+    fn process_references(&self, tree: &Tree, uri: &Url, text: &str) {
         let mut cursor = QueryCursor::new();
 
         let q = Query::new(
@@ -134,12 +130,11 @@ impl Backend {
             info!("LABEL = {label}");
             self.data
                 .rd
-                .add_reference(label, uri, convert_range(&range))
-                .await;
+                .add_reference(label, uri, convert_range(&range));
         }
     }
 
-    async fn handle_file(&self, uri: &Url, text: Option<String>) -> Vec<Url> {
+    fn handle_file(&self, uri: &Url, text: Option<String>) -> Vec<Url> {
         if !utils::extension_one_of(uri, &["dts", "dtsi"]) {
             return Vec::new();
         }
@@ -156,11 +151,11 @@ impl Backend {
             }
         };
 
-        match self.data.fd.insert(uri, text.clone()).await {
+        match self.data.fd.insert(uri, &text) {
             file_depot::InsertResult::Exists => return Vec::new(),
             file_depot::InsertResult::Modified => {
-                self.data.ld.invalidate(uri).await;
-                self.data.rd.invalidate(uri).await;
+                self.data.ld.invalidate(uri);
+                self.data.rd.invalidate(uri);
             }
             file_depot::InsertResult::Ok => (),
         };
@@ -171,12 +166,12 @@ impl Backend {
             .unwrap();
         let tree = parser.parse(&text, None).unwrap();
 
-        self.process_labels(&tree, uri, &text).await;
-        self.process_references(&tree, uri, &text).await;
-        self.process_includes(&tree, uri, &text).await
+        self.process_labels(&tree, uri, &text);
+        self.process_references(&tree, uri, &text);
+        self.process_includes(&tree, uri, &text)
     }
 
-    async fn open_neighbours(&self, uri: &Url) {
+    fn open_neighbours(&self, uri: &Url) {
         let d = uri.join(".").unwrap();
         let Ok(path) = d.to_file_path() else {
             error!("Invalid url {}", d);
@@ -195,10 +190,10 @@ impl Backend {
                 continue;
             }
             let u = Url::from_file_path(p).unwrap();
-            if self.data.fd.exist(&u).await {
+            if self.data.fd.exist(&u) {
                 continue;
             }
-            self.handle_file(&u, None).await;
+            self.handle_file(&u, None);
         }
     }
 }
@@ -256,19 +251,19 @@ impl LanguageServer for Backend {
         info!("Open file: {uri}");
 
         let text = params.text_document.text.as_str();
-        let mut includes = self.handle_file(uri, Some(text.to_string())).await;
+        let mut includes = self.handle_file(uri, Some(text.to_string()));
 
         while let Some(new_url) = includes.pop() {
-            let mut tmp = self.handle_file(&new_url, None).await;
+            let mut tmp = self.handle_file(&new_url, None);
             includes.append(&mut tmp);
         }
 
-        self.data.fd.dump().await;
-        self.data.ld.dump().await;
-        self.data.rd.dump().await;
+        self.data.fd.dump();
+        self.data.ld.dump();
+        self.data.rd.dump();
 
         if self.process_neighbours {
-            self.open_neighbours(uri).await;
+            self.open_neighbours(uri);
         }
     }
 
@@ -279,7 +274,7 @@ impl LanguageServer for Backend {
         let location = input.text_document_position_params.position;
         let location = Point::new(location.line as usize, location.character as usize);
         let uri = input.text_document_position_params.text_document.uri;
-        let Some(text) = self.data.fd.get_text(&uri).await else {
+        let Some(text) = self.data.fd.get_text(&uri) else {
             return Ok(None);
         };
         let mut parser = Parser::new();
@@ -297,7 +292,7 @@ impl LanguageServer for Backend {
                 return Ok(None);
             }
 
-            let labels = self.data.ld.find_label(&uri, label).await;
+            let labels = self.data.ld.find_label(&uri, label);
             let res: Vec<Location> = labels
                 .clone()
                 .into_iter()
@@ -319,7 +314,7 @@ impl LanguageServer for Backend {
         let location = Point::new(location.line as usize, location.character as usize);
         let uri = params.text_document_position.text_document.uri;
 
-        let Some(text) = self.data.fd.get_text(&uri).await else {
+        let Some(text) = self.data.fd.get_text(&uri) else {
             warn!("No text found for file {uri}");
             return Ok(None);
         };
@@ -335,10 +330,7 @@ impl LanguageServer for Backend {
         {
             let label = node.utf8_text(text.as_bytes()).unwrap();
 
-            if let (Some(parent), v) = (
-                node.parent(),
-                self.data.rd.find_references(&uri, label).await,
-            ) {
+            if let (Some(parent), v) = (node.parent(), self.data.rd.find_references(&uri, label)) {
                 if parent.kind() == "node" {
                     let mut res = Vec::new();
                     for x in v {
@@ -358,7 +350,7 @@ impl LanguageServer for Backend {
         let location = params.position;
         let location = Point::new(location.line as usize, location.character as usize);
         let uri = params.text_document.uri;
-        let Some(text) = self.data.fd.get_text(&uri).await else {
+        let Some(text) = self.data.fd.get_text(&uri) else {
             warn!("No text found for file {uri}");
             return Ok(None);
         };
@@ -375,8 +367,8 @@ impl LanguageServer for Backend {
             let name = node.utf8_text(text.as_bytes()).unwrap();
             let range = node.range();
 
-            let labels = self.data.ld.find_label(&uri, name).await;
-            let references = self.data.rd.find_references(&uri, name).await;
+            let labels = self.data.ld.find_label(&uri, name);
+            let references = self.data.rd.find_references(&uri, name);
 
             if labels.len() + references.len() > 0 {
                 return Ok(Some(PrepareRenameResponse::Range(convert_range(&range))));
@@ -390,7 +382,7 @@ impl LanguageServer for Backend {
         let location = params.text_document_position.position;
         let location = Point::new(location.line as usize, location.character as usize);
         let uri = params.text_document_position.text_document.uri;
-        let Some(text) = self.data.fd.get_text(&uri).await else {
+        let Some(text) = self.data.fd.get_text(&uri) else {
             warn!("No text found for file {uri}");
             return Ok(None);
         };
@@ -407,21 +399,15 @@ impl LanguageServer for Backend {
             let name = node.utf8_text(text.as_bytes()).unwrap();
             let mut result: HashMap<Url, Vec<TextEdit>> = HashMap::new();
 
-            let labels = self.data.ld.find_label(&uri, name).await;
-            let references = self.data.rd.find_references(&uri, name).await;
+            let labels = self.data.ld.find_label(&uri, name);
+            let references = self.data.rd.find_references(&uri, name);
 
             for label in &labels {
-                self.data
-                    .ld
-                    .rename(&label.uri, name, &params.new_name)
-                    .await;
+                self.data.ld.rename(&label.uri, name, &params.new_name);
             }
 
             for reference in &references {
-                self.data
-                    .rd
-                    .rename(&reference.uri, name, &params.new_name)
-                    .await;
+                self.data.rd.rename(&reference.uri, name, &params.new_name);
             }
 
             // TODO: check that labels in single file are ordered from bottom to top
@@ -431,7 +417,7 @@ impl LanguageServer for Backend {
             }
 
             for (uri, edits) in &result {
-                self.data.fd.apply_edits(uri, edits).await;
+                self.data.fd.apply_edits(uri, edits);
             }
 
             if !result.is_empty() {
@@ -456,10 +442,10 @@ impl LanguageServer for Backend {
         info!("Change file: {uri}");
 
         let text = &params.content_changes[0].text;
-        let mut includes = self.handle_file(uri, Some(text.to_string())).await;
+        let mut includes = self.handle_file(uri, Some(text.to_string()));
 
         while let Some(new_url) = includes.pop() {
-            let mut tmp = self.handle_file(&new_url, None).await;
+            let mut tmp = self.handle_file(&new_url, None);
             includes.append(&mut tmp);
         }
     }

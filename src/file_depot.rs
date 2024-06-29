@@ -159,7 +159,7 @@ impl Data {
         res.iter().cloned().collect()
     }
 
-    async fn dump(&self) {
+    fn dump(&self) {
         info!("===FILES===");
         for (k, v) in &self.entries {
             info!("{k}, hasText: {}", v.text.is_some());
@@ -207,43 +207,42 @@ impl FileDepot {
         }
     }
 
-    pub async fn insert(&self, uri: &Url, text: String) -> InsertResult {
+    pub fn insert(&self, uri: &Url, text: &str) -> InsertResult {
         info!("FileDepot::insert({uri})");
         let mut data = self.data.lock().unwrap();
-        data.insert(uri, &text)
+        data.insert(uri, text)
     }
 
-    pub async fn dump(&self) {
+    pub fn dump(&self) {
         info!("FileDepot::dump()");
         {
             let lock = self.data.lock().unwrap();
             lock.clone()
         }
-        .dump()
-        .await;
+        .dump();
     }
 
-    pub async fn get_text(&self, uri: &Url) -> Option<String> {
+    pub fn get_text(&self, uri: &Url) -> Option<String> {
         info!("FileDepot::get_text()");
         self.data.lock().unwrap().get_text(uri)
     }
 
-    pub async fn exist(&self, uri: &Url) -> bool {
+    pub fn exist(&self, uri: &Url) -> bool {
         info!("FileDepot::exist()");
         self.data.lock().unwrap().exist(uri)
     }
 
-    pub async fn add_include(&self, uri: &Url, include_uri: &Url) {
+    pub fn add_include(&self, uri: &Url, include_uri: &Url) {
         info!("FileDepot::add_include()");
         self.data.lock().unwrap().add_include(uri, include_uri);
     }
 
-    pub async fn get_component(&self, uri: &Url) -> Vec<Url> {
+    pub fn get_component(&self, uri: &Url) -> Vec<Url> {
         info!("FileDepot::get_component()");
         self.data.lock().unwrap().get_component(uri)
     }
 
-    pub async fn apply_edits(&self, uri: &Url, edits: &Vec<TextEdit>) {
+    pub fn apply_edits(&self, uri: &Url, edits: &Vec<TextEdit>) {
         info!("FileDepot::apply_edits()");
         if let Err(e) = {
             let mut data = self.data.lock().unwrap();
