@@ -1,0 +1,23 @@
+/ {
+	lbl1: node1 {
+	};
+
+	lbl2: node2 {
+	};
+
+	lbl3: node3 {
+	};
+
+	lbl4: node4 {
+	};
+
+
+	references {
+		list_of_refs = <&lbl1>, <&lbl2>;
+	};
+
+	more-references {
+		list_of_refs = <&lbl3>, <&lbl4>;
+	};
+
+};

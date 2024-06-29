@@ -1,5 +1,26 @@
 use std::path::Path;
 
+struct TestContext(Backend);
+
+fn make_ctx(path: &str) -> TestContext {
+    let path = Path::new(path);
+    // Go to test directory, each test directory emulates a workspace
+    std::env::set_current_dir(path).unwrap();
+    TestContext(Backend {
+        data: Data::new(),
+        process_neighbours: true,
+        client: None,
+    })
+}
+
+impl Drop for TestContext {
+    fn drop(&mut self) {
+        // Go back to root directory
+        let path = Path::new("../../");
+        std::env::set_current_dir(path).unwrap();
+    }
+}
+
 impl Backend {
     async fn mock_open(&self, uri: &str) {
         let file_data = read_to_string(uri).unwrap();
@@ -92,6 +113,29 @@ impl Backend {
         self.references(params).await
     }
 
+    async fn mock_goto_definition(
+        &self,
+        uri: &str,
+        pos: Position,
+    ) -> Result<Option<GotoDefinitionResponse>> {
+        let path = Path::new(uri).canonicalize().unwrap();
+        let uri = Url::from_file_path(path).unwrap();
+        let params = GotoDefinitionParams {
+            work_done_progress_params: WorkDoneProgressParams {
+                work_done_token: None,
+            },
+            text_document_position_params: TextDocumentPositionParams {
+                position: pos,
+                text_document: TextDocumentIdentifier::new(uri),
+            },
+            partial_result_params: PartialResultParams {
+                partial_result_token: None,
+            },
+        };
+
+        self.goto_definition(params).await
+    }
+
     async fn verify_file(&self, uri: &Url, expected_file: &str) -> bool {
         let text = self.data.fd.get_text(uri).unwrap();
         let expected_text = read_to_string(expected_file).unwrap();
@@ -135,7 +179,7 @@ impl ReferencesDepot {
     async fn new_expected(fd: &FileDepot, data: Vec<(&str, &str, Range)>) -> Self {
         let rd = ReferencesDepot::new(fd);
         for x in data {
-            rd.add_reference(x.0, &make_url(x.1), x.2)
+            rd.add_reference(x.0, &make_url(x.1), x.2);
         }
         rd
     }
@@ -168,9 +212,11 @@ use super::*;
 async fn functional() {
     Logger::set(Logger::Print);
     {
+        info!("TEST 0");
         let be = Backend {
             data: Data::new(),
             process_neighbours: false,
+            client: None,
         };
         let path = "tests/1/bad_file.dts";
 
@@ -181,8 +227,9 @@ async fn functional() {
         assert_eq!(be.data.rd.size().await, 0);
     }
     {
-        let be = Backend::new();
-        let path = "tests/1/good_file.dts";
+        info!("TEST 1");
+        let be = &make_ctx("tests/1/").0;
+        let path = "good_file.dts";
 
         be.mock_open(path).await;
 
@@ -195,9 +242,10 @@ async fn functional() {
         assert_eq!(be.has_label(path, "label").await, 0);
     }
     {
-        let be = Backend::new();
-        let bad_path = "tests/1/bad_file.dts";
-        let good_path = "tests/1/good_file.dts";
+        info!("TEST 2");
+        let be = &make_ctx("tests/1/").0;
+        let bad_path = "bad_file.dts";
+        let good_path = "good_file.dts";
 
         be.mock_open(bad_path).await;
 
@@ -210,10 +258,11 @@ async fn functional() {
         assert_eq!(be.has_label(good_path, "label").await, 0);
     }
     {
+        info!("TEST 3");
         /* Files without supported extension should be ignored */
-        let be = Backend::new();
-        let bad_ext_path = "tests/1/good_file.bad_ext";
-        let good_path = "tests/1/good_file.dts";
+        let be = &make_ctx("tests/1/").0;
+        let bad_ext_path = "good_file.bad_ext";
+        let good_path = "good_file.dts";
 
         be.mock_open(bad_ext_path).await;
 
@@ -226,8 +275,9 @@ async fn functional() {
         assert_eq!(be.has_label(good_path, "label").await, 0);
     }
     {
-        let be = Backend::new();
-        let path = "tests/2/b.dts";
+        info!("TEST 4");
+        let be = &make_ctx("tests/2/").0;
+        let path = "b.dts";
 
         be.mock_open(path).await;
 
@@ -238,8 +288,9 @@ async fn functional() {
         assert_eq!(be.has_label(path, "node").await, 1);
     }
     {
-        let be = Backend::new();
-        let path = "tests/3/a.dts";
+        info!("TEST 5");
+        let be = &make_ctx("tests/3/").0;
+        let path = "a.dts";
 
         be.mock_open(path).await;
 
@@ -261,9 +312,10 @@ async fn functional() {
         assert_eq!(be.data.ld.size().await, 1);
     }
     {
+        info!("TEST 6");
         /* File including non-existent DTSI file */
-        let be = Backend::new();
-        let path = "tests/4/a.dts";
+        let be = &make_ctx("tests/4/").0;
+        let path = "a.dts";
 
         be.mock_open(path).await;
 
@@ -273,8 +325,9 @@ async fn functional() {
         assert_eq!(be.data.rd.size().await, 0);
     }
     {
-        let be = Backend::new();
-        let path = "tests/1/good_file.dts";
+        info!("TEST 7");
+        let be = &make_ctx("tests/1/").0;
+        let path = "good_file.dts";
 
         be.mock_open(path).await;
 
@@ -310,10 +363,11 @@ async fn functional() {
         assert_eq!(expected.0, res);
     }
     {
+        info!("TEST 8");
         // TODO: test single file, multiple references
         // TODO: probably b.dts should change as well
-        let be = Backend::new();
-        let path = "tests/2/a.dts";
+        let be = &make_ctx("tests/2/").0;
+        let path = "a.dts";
 
         be.mock_open(path).await;
 
@@ -322,8 +376,8 @@ async fn functional() {
         let expected_ld = LabelsDepot::new_expected(
             &be.data.fd,
             vec![
-                ("node", "tests/2/a.dts", make_range((3, 1), (3, 5))),
-                ("node", "tests/2/b.dts", make_range((2, 1), (2, 5))),
+                ("node", "a.dts", make_range((3, 1), (3, 5))),
+                ("node", "b.dts", make_range((2, 1), (2, 5))),
             ],
         )
         .await;
@@ -331,7 +385,7 @@ async fn functional() {
 
         let expected_rd = ReferencesDepot::new_expected(
             &be.data.fd,
-            vec![("node", "tests/2/common.dtsi", make_range((2, 10), (2, 14)))],
+            vec![("node", "common.dtsi", make_range((2, 10), (2, 14)))],
         )
         .await;
         assert!(be.data.rd == expected_rd);
@@ -341,8 +395,8 @@ async fn functional() {
 
         let res = be.mock_rename(path, Position::new(3, 1), "changed").await;
         let mut expected = Changes::new();
-        expected.add_edit("tests/2/a.dts", (3, 1), (3, 5), "changed");
-        expected.add_edit("tests/2/common.dtsi", (2, 10), (2, 14), "changed");
+        expected.add_edit("a.dts", (3, 1), (3, 5), "changed");
+        expected.add_edit("common.dtsi", (2, 10), (2, 14), "changed");
         assert_eq!(expected.0, res);
 
         assert_eq!(be.data.fd.size().await, 3);
@@ -350,8 +404,8 @@ async fn functional() {
         let expected_ld = LabelsDepot::new_expected(
             &be.data.fd,
             vec![
-                ("changed", "tests/2/a.dts", make_range((3, 1), (3, 8))),
-                ("node", "tests/2/b.dts", make_range((2, 1), (2, 5))),
+                ("changed", "a.dts", make_range((3, 1), (3, 8))),
+                ("node", "b.dts", make_range((2, 1), (2, 5))),
             ],
         )
         .await;
@@ -361,14 +415,15 @@ async fn functional() {
         let expected_rd = ReferencesDepot::new_expected(
             &be.data.fd,
             vec![
-            ("changed", "tests/2/common.dtsi", make_range((2, 10), (2, 17))),
+            ("changed", "common.dtsi", make_range((2, 10), (2, 17))),
             ],
         ).await;
         assert!(be.data.rd == expected_rd);
     }
     {
-        let be = Backend::new();
-        let path = "tests/2/common.dtsi";
+        info!("TEST 9");
+        let be = &make_ctx("tests/2/").0;
+        let path = "common.dtsi";
 
         be.mock_open(path).await;
 
@@ -377,8 +432,8 @@ async fn functional() {
         let expected_ld = LabelsDepot::new_expected(
             &be.data.fd,
             vec![
-                ("node", "tests/2/a.dts", make_range((3, 1), (3, 5))),
-                ("node", "tests/2/b.dts", make_range((2, 1), (2, 5))),
+                ("node", "a.dts", make_range((3, 1), (3, 5))),
+                ("node", "b.dts", make_range((2, 1), (2, 5))),
             ],
         )
         .await;
@@ -386,7 +441,7 @@ async fn functional() {
 
         let expected_rd = ReferencesDepot::new_expected(
             &be.data.fd,
-            vec![("node", "tests/2/common.dtsi", make_range((2, 10), (2, 14)))],
+            vec![("node", "common.dtsi", make_range((2, 10), (2, 14)))],
         )
         .await;
         assert!(be.data.rd == expected_rd);
@@ -396,9 +451,9 @@ async fn functional() {
 
         let res = be.mock_rename(path, Position::new(2, 10), "changed").await;
         let mut expected = Changes::new();
-        expected.add_edit("tests/2/a.dts", (3, 1), (3, 5), "changed");
-        expected.add_edit("tests/2/b.dts", (2, 1), (2, 5), "changed");
-        expected.add_edit("tests/2/common.dtsi", (2, 10), (2, 14), "changed");
+        expected.add_edit("a.dts", (3, 1), (3, 5), "changed");
+        expected.add_edit("b.dts", (2, 1), (2, 5), "changed");
+        expected.add_edit("common.dtsi", (2, 10), (2, 14), "changed");
         assert_eq!(expected.0, res);
 
         assert_eq!(be.data.fd.size().await, 3);
@@ -408,8 +463,8 @@ async fn functional() {
         let expected_ld = LabelsDepot::new_expected(
             &be.data.fd,
             vec![
-                ("changed", "tests/2/a.dts", make_range((3, 1), (3, 8))),
-                ("changed", "tests/2/b.dts", make_range((2, 1), (2, 8))),
+                ("changed", "a.dts", make_range((3, 1), (3, 8))),
+                ("changed", "b.dts", make_range((2, 1), (2, 8))),
             ],
         )
         .await;
@@ -419,14 +474,15 @@ async fn functional() {
         let expected_rd = ReferencesDepot::new_expected(
             &be.data.fd,
             vec![
-            ("changed", "tests/2/common.dtsi", make_range((2, 10), (2, 17))),
+            ("changed", "common.dtsi", make_range((2, 10), (2, 17))),
             ],
         ).await;
         assert!(be.data.rd == expected_rd);
     }
     {
-        let be = Backend::new();
-        let path = "tests/5/before.dts";
+        info!("TEST 10");
+        let be = &make_ctx("tests/5/").0;
+        let path = "before.dts";
 
         be.mock_open(path).await;
         let edits: Vec<TextEdit> = vec![
@@ -444,34 +500,36 @@ async fn functional() {
 
         for (i, edit) in edits.iter().enumerate() {
             let index = i + 1;
-            let expected_file = format!("tests/5/after-{index}.dts");
+            let expected_file = format!("after-{index}.dts");
             be.test_edit(&make_url(path), edit.clone(), &expected_file)
                 .await;
         }
     }
     {
-        let be = Backend::new();
-        let path = "tests/5/before.dts";
+        info!("TEST 11");
+        let be = &make_ctx("tests/5/").0;
+        let path = "before.dts";
 
         be.mock_open(path).await;
 
         let _ = be.mock_rename(path, Position::new(1, 1), "lbl").await;
-        assert!(be.verify_file(&make_url(path), "tests/5/after-2.dts").await);
+        assert!(be.verify_file(&make_url(path), "after-2.dts").await);
 
         let _ = be
             .mock_rename(path, Position::new(1, 1), "some_label")
             .await;
-        assert!(be.verify_file(&make_url(path), "tests/5/before.dts").await);
+        assert!(be.verify_file(&make_url(path), "before.dts").await);
 
         let _ = be
             .mock_rename(path, Position::new(1, 1), "very_long_label_value")
             .await;
-        assert!(be.verify_file(&make_url(path), "tests/5/after-4.dts").await);
+        assert!(be.verify_file(&make_url(path), "after-4.dts").await);
     }
     {
+        info!("TEST 12");
         // find references breaks after buffer is changed and restored
-        let be = Backend::new();
-        let path = "tests/2/a.dts";
+        let be = &make_ctx("tests/2/").0;
+        let path = "a.dts";
         let uri = make_url(path);
 
         be.mock_open(path).await;
@@ -480,7 +538,7 @@ async fn functional() {
         assert_eq!(res.unwrap().unwrap().len(), 1);
 
         let old_file_contents = be.data.fd.get_text(&uri).unwrap();
-        be.mock_change(path, "".to_string()).await;
+        be.mock_change(path, String::new()).await;
         be.mock_change(path, old_file_contents).await;
 
         let res = be.mock_refrences(path, Position::new(3, 1)).await;
@@ -488,12 +546,13 @@ async fn functional() {
         assert_eq!(res.unwrap().unwrap().len(), 1);
     }
     {
-        let be = Backend::new();
-        let path = "tests/apply_edits/file.dts";
+        info!("TEST 13");
+        let be = &make_ctx("tests/apply_edits/").0;
+        let path = "file.dts";
         let uri = make_url(path);
 
-        let change1 = read_to_string("tests/apply_edits/change1.txt").unwrap();
-        let change2 = read_to_string("tests/apply_edits/change2.txt").unwrap();
+        let change1 = read_to_string("change1.txt").unwrap();
+        let change2 = read_to_string("change2.txt").unwrap();
 
         let edits = vec![
             TextEdit::new(make_range((6, 1), (6, 13)), change2),
@@ -504,6 +563,33 @@ async fn functional() {
         be.mock_open(path).await;
         be.data.fd.apply_edits(&uri, &edits);
 
-        assert!(be.verify_file(&uri, "tests/apply_edits/expected.dts").await);
+        assert!(be.verify_file(&uri, "expected.dts").await);
+    }
+    {
+        info!("TEST 14");
+        let be = &make_ctx("tests/includes_with_prefix/").0;
+        let path = "good_file.dts";
+
+        be.mock_open(path).await;
+
+        let pos = Position::new(9, 22); // LOCAL
+        let res = be.mock_goto_definition(path, pos).await;
+        let loc = Location::new(make_url("local.h"), make_range((0, 8), (0, 13)));
+        assert_eq!(res.unwrap().unwrap(), GotoDefinitionResponse::Scalar(loc));
+
+        be.data.fd.dump();
+
+        let pos = Position::new(9, 13); // VALUE
+        let res = be.mock_goto_definition(path, pos).await;
+        let loc = Location::new(
+            make_url("include/dt-bindings/test/test.h"),
+            make_range((0, 8), (0, 13)),
+        );
+        assert_eq!(res.unwrap().unwrap(), GotoDefinitionResponse::Scalar(loc));
+
+        let pos = Position::new(9, 30); // INPLACE
+        let res = be.mock_goto_definition(path, pos).await;
+        let loc = Location::new(make_url(path), make_range((4, 8), (4, 15)));
+        assert_eq!(res.unwrap().unwrap(), GotoDefinitionResponse::Scalar(loc));
     }
 }

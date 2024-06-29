@@ -174,11 +174,7 @@ impl ReferencesDepot {
     }
 
     pub fn dump(&self) {
-        {
-            let x = self.data.lock().unwrap();
-            x.clone()
-        }
-        .dump();
+        self.data.lock().unwrap().dump();
     }
 }
 

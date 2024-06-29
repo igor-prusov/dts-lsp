@@ -37,3 +37,7 @@ pub fn extension_one_of(url: &Url, exts: &[&str]) -> bool {
     }
     false
 }
+
+pub fn is_header(uri: &Url) -> bool {
+    extension_one_of(uri, &["h"])
+}

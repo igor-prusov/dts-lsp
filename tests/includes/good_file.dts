@@ -1,0 +1,9 @@
+#include "base.dtsi"
+#include <dt-bindings/test/test.h>
+
+/ {
+	a: node_a{};
+	b: node_b{
+		node = <1  VALUE>;
+	};
+};
