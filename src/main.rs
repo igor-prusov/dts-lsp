@@ -1,3 +1,4 @@
+#![allow(clippy::unused_async)]
 use std::collections::HashMap;
 use std::fs::metadata;
 use std::fs::read_dir;
@@ -474,7 +475,8 @@ async fn main() {
     let stdout = tokio::io::stdout();
 
     let (service, socket) = LspService::new(|client| {
-        Logger::set(&Logger::Lsp(client));
+        let handle = tokio::runtime::Handle::current();
+        Logger::set(Logger::Lsp(handle, client));
         Backend::new()
     });
     Server::new(stdin, stdout, socket).serve(service).await;

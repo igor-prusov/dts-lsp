@@ -166,7 +166,7 @@ impl Changes {
 use super::*;
 #[tokio::test]
 async fn functional() {
-    Logger::set(&Logger::Print);
+    Logger::set(Logger::Print);
     {
         let be = Backend {
             data: Data::new(),
