@@ -1,0 +1,12 @@
+#include "base.dtsi"
+#include <dt-bindings/test/test.h>
+#include "local.h"
+
+#define INPLACE		33
+
+/ {
+	a: node_a{};
+	b: node_b{
+		node = <1  VALUE 2 LOCAL 3 INPLACE>;
+	};
+};

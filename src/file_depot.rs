@@ -1,4 +1,4 @@
-use crate::{error, info, log_message};
+use crate::{error, info, log_message, utils::is_header};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -14,6 +14,7 @@ struct FileEntry {
 
 #[derive(Clone)]
 struct Data {
+    includes_prefix: String,
     entries: HashMap<Url, FileEntry>,
 }
 
@@ -48,6 +49,7 @@ impl<'a> MyTextEdit<'a> {
 impl Data {
     fn new() -> Data {
         Data {
+            includes_prefix: "include".to_string(),
             entries: HashMap::new(),
         }
     }
@@ -102,9 +104,35 @@ impl Data {
         }
     }
 
+    fn get_real_path(&self, rel_path: &str) -> Option<Url> {
+        let mut dst = match std::env::current_dir() {
+            Ok(x) => x,
+            Err(e) => {
+                error!("Failed to get current dir: {e}");
+                return None;
+            }
+        };
+
+        dst.push(&self.includes_prefix);
+        dst.push(rel_path);
+
+        let Some(x) = dst.to_str() else {
+            error!("Failed to get path ");
+            return None;
+        };
+
+        let Ok(uri) = Url::from_file_path(x) else {
+            error!("Can't convert path {x} to Url");
+            return None;
+        };
+        info!("readl_url = {}", dst.to_str().unwrap());
+        Some(uri)
+    }
+
     fn add_include(&mut self, uri: &Url, include_uri: &Url) {
         let e = self.entries.entry(uri.clone()).or_default();
         e.includes.push(include_uri.clone());
+        info!("add_include: {include_uri} from {uri}");
 
         let e = self.entries.entry(include_uri.clone()).or_default();
         e.included_by.push(uri.clone());
@@ -119,7 +147,9 @@ impl Data {
             if let Some(e) = self.entries.get(&uri) {
                 for f in &e.includes {
                     if !visited.contains(f) {
-                        to_visit.push(f.clone());
+                        if !is_header(f) {
+                            to_visit.push(f.clone());
+                        }
                         res.push(f.clone());
                         visited.insert(uri.clone());
                     }
@@ -134,7 +164,9 @@ impl Data {
         if let Some(e) = self.entries.get(uri) {
             for f in &e.included_by {
                 if !visited.contains(f) {
-                    to_visit.push(f.clone());
+                    if !is_header(f) {
+                        to_visit.push(f.clone());
+                    }
                     visited.insert(f.clone());
                     res.push(f.clone());
                 }
@@ -145,7 +177,9 @@ impl Data {
             if let Some(e) = self.entries.get(&uri) {
                 for f in e.includes.iter().chain(e.included_by.iter()) {
                     if !visited.contains(f) {
-                        to_visit.push(f.clone());
+                        if !is_header(f) {
+                            to_visit.push(f.clone());
+                        }
                         visited.insert(f.clone());
                         res.push(f.clone());
                     }
@@ -181,6 +215,10 @@ impl Data {
         self.entries.get(uri).and_then(|x| x.text.clone())
     }
 
+    fn set_includes_prefix(&mut self, prefix: &str) {
+        self.includes_prefix = prefix.to_string();
+    }
+
     #[cfg(test)]
     fn size(&self) -> usize {
         self.entries.keys().count()
@@ -190,7 +228,7 @@ impl Data {
     fn n_with_text(&self) -> usize {
         self.entries
             .iter()
-            .map(|x| x.1.text.is_some() as usize)
+            .map(|x| usize::from(x.1.text.is_some()))
             .sum()
     }
 }
@@ -250,6 +288,16 @@ impl FileDepot {
         } {
             error!("{}", e);
         }
+    }
+
+    pub fn get_real_path(&self, uri: &str) -> Option<Url> {
+        self.data.lock().unwrap().get_real_path(uri)
+    }
+
+    // TODO: Allow per-workspace include prefixes
+    #[allow(dead_code)]
+    pub fn set_includes_prefix(&self, prefix: &str) {
+        self.data.lock().unwrap().set_includes_prefix(prefix);
     }
 
     #[cfg(test)]
