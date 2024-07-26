@@ -6,8 +6,8 @@
 [crates-badge]: https://img.shields.io/crates/v/dts-lsp.svg
 [crates-url]: https://crates.io/crates/dts-lsp
 
-[actions-badge]: https://github.com/igor-prusov/dts-lsp/workflows/CI/badge.svg
-[actions-url]: https://github.com/igor-prusov/dts-lsp/actions?query=workflow%3ACI+branch%3Amaster
+[actions-badge]: https://github.com/igor-prusov/dts-lsp/actions/workflows/build.yml/badge.svg
+[actions-url]: https://github.com/igor-prusov/dts-lsp/actions/workflows/build.yml?query=branch%3Amaster
 
 
 
