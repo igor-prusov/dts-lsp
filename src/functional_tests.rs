@@ -1,7 +1,10 @@
+use logger::LogProcessor;
+use std::sync::mpsc;
 use utils::current_url;
 
 async fn make_backend_ext(path: &str, process_neighbours: bool) -> Backend {
     // Go to test directory, each test directory emulates a workspace
+    LogProcessor::local_set(LogProcessor::Strict);
     let be = Backend {
         data: Data::new(),
         process_neighbours,
@@ -221,6 +224,15 @@ impl Changes {
     }
 }
 
+type Diagnostic = (MessageType, String);
+
+fn validate_messages(rx: &mpsc::Receiver<Diagnostic>, v: Vec<Diagnostic>) {
+    for x in v {
+        assert_eq!(rx.try_recv(), Ok(x));
+    }
+    assert_eq!(rx.try_recv(), Err(mpsc::TryRecvError::Empty));
+}
+
 use super::*;
 
 #[tokio::test]
@@ -329,7 +341,9 @@ async fn open_5() {
 #[tokio::test]
 async fn open_6() {
     /* File including non-existent DTSI file */
+    let (tx, rx) = mpsc::channel::<(MessageType, String)>();
     let be = &make_backend("tests/4/").await;
+    LogProcessor::local_set(LogProcessor::Diagnostics(tx));
     let path = "a.dts";
 
     be.mock_open(path).await;
@@ -338,6 +352,22 @@ async fn open_6() {
     assert_eq!(be.data.fd.n_with_text(), 1);
     assert_eq!(be.data.ld.size(), 2);
     assert_eq!(be.data.rd.size(), 0);
+
+    let missing_file = be
+        .data
+        .fd
+        .get_root_dir()
+        .unwrap()
+        .join("missing.dtsi")
+        .unwrap();
+
+    validate_messages(
+        &rx,
+        vec![(
+            MessageType::WARNING,
+            format!("can't read file {missing_file}: entity not found"),
+        )],
+    );
 }
 
 #[tokio::test]
