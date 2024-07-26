@@ -14,6 +14,7 @@ struct FileEntry {
 
 #[derive(Clone)]
 struct Data {
+    root_dir: Option<Url>, // TODO: Maybe some type that allows only one assignment?
     includes_prefix: String,
     entries: HashMap<Url, FileEntry>,
 }
@@ -49,6 +50,7 @@ impl<'a> MyTextEdit<'a> {
 impl Data {
     fn new() -> Data {
         Data {
+            root_dir: None,
             includes_prefix: "include".to_string(),
             entries: HashMap::new(),
         }
@@ -105,28 +107,22 @@ impl Data {
     }
 
     fn get_real_path(&self, rel_path: &str) -> Option<Url> {
-        let mut dst = match std::env::current_dir() {
-            Ok(x) => x,
-            Err(e) => {
-                error!("Failed to get current dir: {e}");
-                return None;
-            }
-        };
-
-        dst.push(&self.includes_prefix);
-        dst.push(rel_path);
-
-        let Some(x) = dst.to_str() else {
-            error!("Failed to get path ");
+        let Some(root) = &self.root_dir else {
+            error!("Root dir is not set");
             return None;
         };
 
-        let Ok(uri) = Url::from_file_path(x) else {
-            error!("Can't convert path {x} to Url");
+        let Ok(dst) = root.join(&(self.includes_prefix.clone() + "/")) else {
+            error!("failed to join {root} and {}", self.includes_prefix);
             return None;
         };
-        info!("readl_url = {}", dst.to_str().unwrap());
-        Some(uri)
+
+        let Ok(dst) = dst.join(rel_path) else {
+            error!("failed to join {root} and {}", rel_path);
+            return None;
+        };
+
+        Some(dst)
     }
 
     fn add_include(&mut self, uri: &Url, include_uri: &Url) {
@@ -219,6 +215,18 @@ impl Data {
         self.includes_prefix = prefix.to_string();
     }
 
+    fn set_root_dir(&mut self, uri: &Url) {
+        // TODO: for some reason tower_lsp returns root_uri without trailing slash, bug?
+        let mut uri = uri.clone();
+        uri.set_path(&(uri.path().to_string() + "/"));
+        self.root_dir = Some(uri.clone());
+    }
+
+    #[cfg(test)]
+    pub fn get_root_dir(&self) -> Option<Url> {
+        self.root_dir.clone()
+    }
+
     #[cfg(test)]
     fn size(&self) -> usize {
         self.entries.keys().count()
@@ -300,13 +308,22 @@ impl FileDepot {
         self.data.lock().unwrap().set_includes_prefix(prefix);
     }
 
+    pub fn set_root_dir(&self, uri: &Url) {
+        self.data.lock().unwrap().set_root_dir(uri);
+    }
+
     #[cfg(test)]
-    pub async fn size(&self) -> usize {
+    pub fn get_root_dir(&self) -> Option<Url> {
+        self.data.lock().unwrap().get_root_dir()
+    }
+
+    #[cfg(test)]
+    pub fn size(&self) -> usize {
         self.data.lock().unwrap().size()
     }
 
     #[cfg(test)]
-    pub async fn n_with_text(&self) -> usize {
+    pub fn n_with_text(&self) -> usize {
         self.data.lock().unwrap().n_with_text()
     }
 }

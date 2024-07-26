@@ -169,7 +169,7 @@ impl LabelsDepot {
     }
 
     #[cfg(test)]
-    pub async fn size(&self) -> usize {
+    pub fn size(&self) -> usize {
         let data = self.data.lock().unwrap();
         data.size()
     }
