@@ -22,7 +22,7 @@ mod references_depot;
 mod utils;
 
 #[cfg(test)]
-mod tests;
+mod functional_tests;
 
 use file_depot::FileDepot;
 use includes_depot::IncludesDepot;
@@ -292,7 +292,15 @@ impl Data {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
-    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+    async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
+        let uri = if let Some(x) = params.root_uri {
+            x
+        } else {
+            warn!("Can't get rootUri, using current directory");
+            utils::current_url()?
+        };
+        self.data.fd.set_root_dir(&uri);
+
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
