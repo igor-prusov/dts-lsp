@@ -216,9 +216,6 @@ impl Data {
     }
 
     fn set_root_dir(&mut self, uri: &Url) {
-        // TODO: for some reason tower_lsp returns root_uri without trailing slash, bug?
-        let mut uri = uri.clone();
-        uri.set_path(&(uri.path().to_string() + "/"));
         self.root_dir = Some(uri.clone());
     }
 

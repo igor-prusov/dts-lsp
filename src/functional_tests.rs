@@ -11,7 +11,7 @@ async fn make_backend_ext(path: &str, process_neighbours: bool) -> Backend {
         client: None,
     };
     let mut root = current_url().unwrap();
-    let root_path = root.path().to_string() + "/" + path.trim_end_matches('/');
+    let root_path = root.path().to_string() + "/" + path;
     root.set_path(&root_path);
     be.mock_initialize(root).await;
     be
