@@ -54,8 +54,6 @@ impl Data {
         }
 
         while let Some(uri) = to_visit.pop() {
-            info!("processing {uri}");
-
             if let Some(range) = self.label_to_symbol.get(&Label {
                 name: label.to_string(),
                 uri: uri.clone(),
