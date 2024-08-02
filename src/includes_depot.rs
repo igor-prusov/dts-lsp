@@ -1,5 +1,5 @@
+use crate::file_depot::FileDepot;
 use crate::utils::Symbol;
-use crate::FileDepot;
 use crate::{info, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
