@@ -1,4 +1,8 @@
+use crate::file_depot::FileDepot;
+use crate::labels_depot::LabelsDepot;
+use crate::references_depot::ReferencesDepot;
 use logger::LogProcessor;
+use std::fs::read_to_string;
 use std::sync::mpsc;
 use utils::current_url;
 
@@ -6,7 +10,7 @@ async fn make_backend_ext(path: &str, process_neighbours: bool) -> Backend {
     // Go to test directory, each test directory emulates a workspace
     LogProcessor::local_set(LogProcessor::Strict);
     let be = Backend {
-        data: Data::new(),
+        data: Workspace::new(),
         process_neighbours,
         client: None,
     };
