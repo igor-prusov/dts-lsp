@@ -266,7 +266,8 @@ async fn open_1() {
 
 #[tokio::test]
 async fn open_2() {
-    let be = &make_backend("tests/1/").await;
+    // Test that root_dir without trailing slashes as well
+    let be = &make_backend("tests/1").await;
     let bad_path = "bad_file.dts";
     let good_path = "good_file.dts";
 

@@ -216,6 +216,12 @@ impl Data {
     }
 
     fn set_root_dir(&mut self, uri: &Url) {
+        /* root_dir comes from LSP client and it's better to
+         * verify that there is a trailing slash */
+        let mut uri = uri.clone();
+        if !uri.path().ends_with('/') {
+            uri.set_path(&(uri.path().to_string() + "/"));
+        }
         self.root_dir = Some(uri.clone());
     }
 
