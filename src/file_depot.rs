@@ -128,7 +128,6 @@ impl Data {
     fn add_include(&mut self, uri: &Url, include_uri: &Url) {
         let e = self.entries.entry(uri.clone()).or_default();
         e.includes.push(include_uri.clone());
-        info!("add_include: {include_uri} from {uri}");
 
         let e = self.entries.entry(include_uri.clone()).or_default();
         e.included_by.push(uri.clone());
@@ -257,13 +256,11 @@ impl FileDepot {
     }
 
     pub fn insert(&self, uri: &Url, text: &str) -> InsertResult {
-        info!("FileDepot::insert({uri})");
         let mut data = self.data.lock().unwrap();
         data.insert(uri, text)
     }
 
     pub fn dump(&self) {
-        info!("FileDepot::dump()");
         {
             let lock = self.data.lock().unwrap();
             lock.clone()
@@ -272,27 +269,22 @@ impl FileDepot {
     }
 
     pub fn get_text(&self, uri: &Url) -> Option<String> {
-        info!("FileDepot::get_text()");
         self.data.lock().unwrap().get_text(uri)
     }
 
     pub fn exist(&self, uri: &Url) -> bool {
-        info!("FileDepot::exist()");
         self.data.lock().unwrap().exist(uri)
     }
 
     pub fn add_include(&self, uri: &Url, include_uri: &Url) {
-        info!("FileDepot::add_include()");
         self.data.lock().unwrap().add_include(uri, include_uri);
     }
 
     pub fn get_component(&self, uri: &Url) -> Vec<Url> {
-        info!("FileDepot::get_component()");
         self.data.lock().unwrap().get_component(uri)
     }
 
     pub fn apply_edits(&self, uri: &Url, edits: &Vec<TextEdit>) {
-        info!("FileDepot::apply_edits()");
         if let Err(e) = {
             let mut data = self.data.lock().unwrap();
             data.apply_edits(uri, edits)
