@@ -155,7 +155,7 @@ impl Workspace {
         }
     }
 
-    pub fn handle_file(&self, uri: &Url, text: Option<String>) -> Vec<Url> {
+    fn handle_single_file(&self, uri: &Url, text: Option<String>) -> Vec<Url> {
         if !extension_one_of(uri, &["dts", "dtsi", "h"]) {
             return Vec::new();
         }
@@ -199,6 +199,16 @@ impl Workspace {
         self.process_includes(&tree, uri, &text)
     }
 
+    pub fn handle_file(&self, uri: &Url, text: Option<String>, process_includes: bool) {
+        let mut includes = self.handle_single_file(uri, text);
+        if process_includes {
+            while let Some(new_url) = includes.pop() {
+                let mut tmp = self.handle_single_file(&new_url, None);
+                includes.append(&mut tmp);
+            }
+        }
+    }
+
     pub fn open_neighbours(&self, uri: &Url) {
         let d = uri.join(".").unwrap();
         let Ok(path) = d.to_file_path() else {
@@ -221,7 +231,7 @@ impl Workspace {
             if self.fd.exist(&u) {
                 continue;
             }
-            self.handle_file(&u, None);
+            self.handle_file(&u, None, false);
         }
     }
 }
