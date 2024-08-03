@@ -113,12 +113,7 @@ impl LanguageServer for Backend {
         info!("Open file: {uri}");
 
         let text = params.text_document.text.as_str();
-        let mut includes = self.data.handle_file(uri, Some(text.to_string()));
-
-        while let Some(new_url) = includes.pop() {
-            let mut tmp = self.data.handle_file(&new_url, None);
-            includes.append(&mut tmp);
-        }
+        self.data.handle_file(uri, Some(text.to_string()), true);
 
         self.data.fd.dump();
         self.data.ld.dump();
@@ -316,12 +311,7 @@ impl LanguageServer for Backend {
         info!("Change file: {uri}");
 
         let text = &params.content_changes[0].text;
-        let mut includes = self.data.handle_file(uri, Some(text.to_string()));
-
-        while let Some(new_url) = includes.pop() {
-            let mut tmp = self.data.handle_file(&new_url, None);
-            includes.append(&mut tmp);
-        }
+        self.data.handle_file(uri, Some(text.to_string()), true);
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
