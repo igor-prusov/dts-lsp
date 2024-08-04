@@ -92,6 +92,7 @@ impl LanguageServer for Backend {
                         work_done_progress: None,
                     },
                 })),
+                document_symbol_provider: Some(OneOf::Left(true)),
                 ..ServerCapabilities::default()
             },
             ..Default::default()
@@ -296,6 +297,34 @@ impl LanguageServer for Backend {
         }
 
         Err(Error::new(tower_lsp::jsonrpc::ErrorCode::InvalidParams))
+    }
+
+    async fn document_symbol(
+        &self,
+        params: DocumentSymbolParams,
+    ) -> Result<Option<DocumentSymbolResponse>> {
+        let url = params.text_document.uri;
+        let mut symbols = Vec::new();
+
+        // TODO: provide all nodes as STRUCT symbols
+
+        for (name, range) in self.data.ld.get_labels_for_uri(&url) {
+            symbols.push(
+                #[allow(deprecated)]
+                DocumentSymbol {
+                    children: None,
+                    deprecated: None,
+                    detail: None,
+                    kind: SymbolKind::VARIABLE,
+                    name,
+                    range,
+                    selection_range: range,
+                    tags: None,
+                },
+            );
+        }
+
+        Ok(Some(DocumentSymbolResponse::Nested(symbols)))
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
