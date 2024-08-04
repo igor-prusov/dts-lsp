@@ -1,6 +1,7 @@
 use logger::log_message;
 use logger::Logger;
 use std::collections::HashMap;
+use tokio::runtime::Handle;
 use tower_lsp::jsonrpc::Error;
 use tower_lsp::jsonrpc::Result;
 #[allow(clippy::wildcard_imports)]
@@ -11,6 +12,7 @@ use tree_sitter::Parser;
 use tree_sitter::Point;
 use utils::convert_range;
 
+mod diagnostics;
 mod file_depot;
 mod includes_depot;
 mod labels_depot;
@@ -31,9 +33,9 @@ struct Backend {
 }
 
 impl Backend {
-    fn new(client: Client) -> Self {
+    fn new(handle: Handle, client: Client) -> Self {
         Backend {
-            data: Workspace::new(),
+            data: Workspace::new(handle, Some(client.clone())),
             process_neighbours: true,
             client: Some(client),
         }
@@ -321,8 +323,8 @@ async fn main() {
 
     let (service, socket) = LspService::new(|client| {
         let handle = tokio::runtime::Handle::current();
-        Logger::set(Logger::Lsp(handle, client.clone()));
-        Backend::new(client)
+        Logger::set(Logger::Lsp(handle.clone(), client.clone()));
+        Backend::new(handle, client)
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }

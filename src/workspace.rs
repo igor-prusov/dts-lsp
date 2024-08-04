@@ -10,13 +10,19 @@ use crate::{error, log_message, warn};
 use std::fs::metadata;
 use std::fs::read_dir;
 use std::fs::read_to_string;
+use tokio::runtime::Handle;
 use tower_lsp::lsp_types::{MessageType, Url};
+use tower_lsp::Client;
 use tree_sitter::Parser;
 use tree_sitter::Query;
 use tree_sitter::QueryCursor;
 use tree_sitter::Tree;
 
+use crate::diagnostics;
+
 pub struct Workspace {
+    handle: Handle,
+    client: Option<Client>,
     pub fd: FileDepot,
     pub ld: LabelsDepot,
     pub rd: ReferencesDepot,
@@ -24,13 +30,26 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new() -> Workspace {
+    pub fn new(handle: Handle, client: Option<Client>) -> Workspace {
         let fd = FileDepot::new();
         Workspace {
             ld: LabelsDepot::new(&fd),
             rd: ReferencesDepot::new(&fd),
             id: IncludesDepot::new(&fd),
             fd,
+            handle,
+            client,
+        }
+    }
+
+    fn process_diagnostics(&self, tree: &Tree, uri: &Url) {
+        let diagnostics = diagnostics::gather(tree);
+        let u = uri.clone();
+
+        if let Some(client) = self.client.clone() {
+            self.handle.spawn(async move {
+                client.publish_diagnostics(u, diagnostics, None).await;
+            });
         }
     }
 
@@ -182,6 +201,7 @@ impl Workspace {
         }
 
         self.process_labels(&tree, uri, &text);
+        self.process_diagnostics(&tree, uri);
         self.process_references(&tree, uri, &text);
         self.process_includes(&tree, uri, &text)
     }
