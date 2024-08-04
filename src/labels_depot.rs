@@ -70,6 +70,17 @@ impl Data {
         res
     }
 
+    fn get_labels_for_uri(&self, uri: &Url) -> Vec<(String, Range)> {
+        let mut res = Vec::new();
+
+        for (label, symbol) in &self.label_to_symbol {
+            if label.uri == *uri {
+                res.push((label.name.clone(), *symbol));
+            }
+        }
+        res
+    }
+
     fn rename(&mut self, uri: &Url, old_name: &str, new_name: &str) -> Result<(), String> {
         let old = self.label_to_symbol.remove_entry(&Label {
             name: old_name.to_string(),
@@ -166,6 +177,10 @@ impl LabelsDepot {
             Ok(()) => (),
             Err(e) => error!("{}", e),
         }
+    }
+
+    pub fn get_labels_for_uri(&self, uri: &Url) -> Vec<(String, Range)> {
+        self.data.lock().unwrap().get_labels_for_uri(uri)
     }
 
     #[cfg(test)]
