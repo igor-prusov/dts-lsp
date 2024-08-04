@@ -115,11 +115,6 @@ impl LanguageServer for Backend {
         let text = params.text_document.text.as_str();
         self.data.handle_file(uri, Some(text.to_string()), true);
 
-        self.data.fd.dump();
-        self.data.ld.dump();
-        self.data.rd.dump();
-        self.data.id.dump();
-
         if self.process_neighbours {
             self.data.open_neighbours(uri);
         }

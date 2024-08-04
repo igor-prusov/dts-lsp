@@ -45,6 +45,7 @@ impl Backend {
         };
 
         self.did_open(params).await;
+        self.data.fd.dump();
     }
 
     async fn mock_change(&self, uri: &str, file_data: String) {
@@ -178,6 +179,7 @@ impl Backend {
     }
 
     fn verify_labels(&self, data: Vec<(&str, &str, Range)>) -> bool {
+        self.data.ld.dump();
         let ld = LabelsDepot::new(&self.data.fd);
         for x in data {
             ld.add_label(x.0, &self.data.fd.make_url(x.1), x.2);
@@ -186,6 +188,7 @@ impl Backend {
     }
 
     fn verify_references(&self, data: Vec<(&str, &str, Range)>) -> bool {
+        self.data.rd.dump();
         let rd = ReferencesDepot::new(&self.data.fd);
         for x in data {
             rd.add_reference(x.0, &self.data.fd.make_url(x.1), x.2);

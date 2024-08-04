@@ -1,10 +1,14 @@
 use crate::file_depot::FileDepot;
 use crate::utils::Symbol;
-use crate::{error, info, log_message};
+use crate::{error, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Mutex;
 use tower_lsp::lsp_types::{MessageType, Range, Url};
+
+#[cfg(test)]
+use crate::info;
+
 /*
  * 1. Add all references to map Reference (similar to Label) -> Vec[Range],
  * 2. Find references: Look-up label in all connected files
@@ -115,6 +119,7 @@ impl Data {
         self.reference_to_symbols.keys().count()
     }
 
+    #[cfg(test)]
     fn dump(&self) {
         info!("===REFERENCES===");
         for (k, v) in &self.reference_to_symbols {
@@ -135,13 +140,11 @@ impl ReferencesDepot {
     }
 
     pub fn add_reference(&self, name: &str, uri: &Url, range: Range) {
-        info!("ReferencesDepot::add_reference()");
         let mut data = self.data.lock().unwrap();
         data.add_reference(name, uri, range);
     }
 
     pub fn find_references(&self, uri: &Url, name: &str) -> Vec<Symbol> {
-        info!("ReferencesDepot::find_references()");
         {
             let x = self.data.lock().unwrap();
             x.clone()
@@ -150,7 +153,6 @@ impl ReferencesDepot {
     }
 
     pub fn invalidate(&self, uri: &Url) {
-        info!("ReferencesDepot::invalidate()");
         let mut data = self.data.lock().unwrap();
         data.invalidate(uri);
     }
@@ -173,6 +175,7 @@ impl ReferencesDepot {
         data.size()
     }
 
+    #[cfg(test)]
     pub fn dump(&self) {
         self.data.lock().unwrap().dump();
     }

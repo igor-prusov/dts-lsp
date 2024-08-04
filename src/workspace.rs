@@ -6,7 +6,7 @@ use crate::references_depot::ReferencesDepot;
 use crate::utils::convert_range;
 use crate::utils::extension_one_of;
 use crate::utils::is_header;
-use crate::{error, info, log_message, warn};
+use crate::{error, log_message, warn};
 use std::fs::metadata;
 use std::fs::read_dir;
 use std::fs::read_to_string;
@@ -71,7 +71,6 @@ impl Workspace {
         .unwrap();
         let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
         let mut v = Vec::new();
-        let mut logs = Vec::new();
         for m in matches {
             let nodes = m.nodes_for_capture_index(0);
             for node in nodes {
@@ -83,24 +82,13 @@ impl Workspace {
                 let label = label.trim_matches('"');
                 let label = label.trim_matches('<');
                 let label = label.trim_matches('>');
-                let range = node.range();
-                let pos = range.start_point;
                 let mut new_url = uri.join(label).unwrap();
                 if needs_fixup {
                     new_url = self.fd.get_real_path(label).unwrap();
                 }
                 v.push(new_url.clone());
                 self.fd.add_include(uri, &new_url);
-                logs.push(format!(
-                    "INCLUDE<{}>: {}, {}",
-                    node.kind(),
-                    new_url,
-                    pos.row
-                ));
             }
-        }
-        for msg in logs {
-            info!("{}", &msg);
         }
         v
     }
@@ -189,7 +177,6 @@ impl Workspace {
         let tree = parser.parse(&text, None).unwrap();
 
         self.process_defines(&tree, uri, &text);
-        self.id.dump();
         if is_header(uri) {
             return Vec::new();
         }
