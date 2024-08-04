@@ -1,10 +1,13 @@
 use crate::file_depot::FileDepot;
 use crate::utils::Symbol;
-use crate::{error, info, log_message};
+use crate::{error, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Mutex;
 use tower_lsp::lsp_types::{MessageType, Range, Url};
+
+#[cfg(test)]
+use crate::info;
 
 #[derive(Clone, Eq, Hash, PartialEq)]
 struct Label {
@@ -104,6 +107,7 @@ impl Data {
         }
     }
 
+    #[cfg(test)]
     fn dump(&self) {
         info!("====== (labels) ======");
         for k in self.label_to_symbol.keys() {
@@ -125,13 +129,11 @@ impl LabelsDepot {
     }
 
     pub fn add_label(&self, label: &str, uri: &Url, range: Range) {
-        info!("LabelsDepot::add_label()");
         let mut data = self.data.lock().unwrap();
         data.add_label(label, uri, range);
     }
 
     pub fn find_label(&self, uri: &Url, label: &str) -> Vec<Symbol> {
-        info!("LabelsDepot::find_label()");
         {
             let data = self.data.lock().unwrap();
             data.clone()
@@ -139,6 +141,7 @@ impl LabelsDepot {
         .find_label(uri, label)
     }
 
+    #[cfg(test)]
     pub fn dump(&self) {
         info!("LabelsDepot::dump()");
         {
@@ -149,7 +152,6 @@ impl LabelsDepot {
     }
 
     pub fn invalidate(&self, uri: &Url) {
-        info!("LabelsDepot::invalidate()");
         let mut data = self.data.lock().unwrap();
         data.invalidate(uri);
     }

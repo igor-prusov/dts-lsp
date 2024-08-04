@@ -61,6 +61,7 @@ impl Data {
         None
     }
 
+    #[cfg(test)]
     fn dump(&self) {
         info!("====== (defines) ======");
         for (k, v) in &self.define_to_symbol {
@@ -92,6 +93,7 @@ impl IncludesDepot {
         self.data.lock().unwrap().find_define(uri, name)
     }
 
+    #[cfg(test)]
     pub fn dump(&self) {
         self.data.lock().unwrap().dump();
     }
