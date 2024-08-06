@@ -1,0 +1,6 @@
+#include "base_base.dtsi"
+
+/ {
+	base_node: base {};
+};
+
