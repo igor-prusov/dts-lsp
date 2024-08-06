@@ -1,0 +1,6 @@
+#include "base.dtsi"
+
+
+/ {
+	node = <&deep_node>;
+};

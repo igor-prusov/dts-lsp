@@ -622,3 +622,25 @@ async fn goto_definition_0() {
     let loc = Location::new(be.make_url(path), make_range((4, 8), (4, 15)));
     assert_eq!(res.unwrap().unwrap(), GotoDefinitionResponse::Scalar(loc));
 }
+
+#[tokio::test]
+async fn goto_definition_1() {
+    /* This test reproduces a bug, which was breaking goto_defintion.
+     * The code that opens neighbour files was not recursively processing includeded files.
+     * This caused a following issue:
+     * - First open some file to trigger it's neighbour processing.
+     * - Open another file in same directory, but without any common include files.
+     * - Second open will not detect second level of includes, because file_depot has entries,
+     *   that have empty file contents and they are not properly processed.
+     *
+     */
+    let be = &make_backend("tests/neighbours_includes/").await;
+
+    be.mock_open("a.dts").await;
+    be.mock_open("b.dts").await;
+
+    let pos = Position::new(4, 10);
+    let res = be.mock_goto_definition("b.dts", pos).await;
+    let loc = Location::new(be.make_url("base_base.dtsi"), make_range((2, 1), (2, 10)));
+    assert_eq!(res.unwrap().unwrap(), GotoDefinitionResponse::Scalar(loc));
+}
