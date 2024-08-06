@@ -116,7 +116,7 @@ impl LanguageServer for Backend {
         info!("Open file: {uri}");
 
         let text = params.text_document.text.as_str();
-        self.data.handle_file(uri, Some(text.to_string()), true);
+        self.data.handle_file(uri, Some(text.to_string()));
 
         if self.process_neighbours {
             self.data.open_neighbours(uri);
@@ -337,7 +337,7 @@ impl LanguageServer for Backend {
         info!("Change file: {uri}");
 
         let text = &params.content_changes[0].text;
-        self.data.handle_file(uri, Some(text.to_string()), true);
+        self.data.handle_file(uri, Some(text.to_string()));
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {
