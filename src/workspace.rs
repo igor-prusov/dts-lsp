@@ -42,6 +42,8 @@ impl Workspace {
         }
     }
 
+    // TODO: Temporarily disabled due to false positives
+    #[allow(dead_code)]
     fn process_diagnostics(&self, tree: &Tree, uri: &Url) {
         let diagnostics = diagnostics::gather(tree);
         let u = uri.clone();
@@ -201,7 +203,7 @@ impl Workspace {
         }
 
         self.process_labels(&tree, uri, &text);
-        self.process_diagnostics(&tree, uri);
+        //self.process_diagnostics(&tree, uri);
         self.process_references(&tree, uri, &text);
         self.process_includes(&tree, uri, &text)
     }
