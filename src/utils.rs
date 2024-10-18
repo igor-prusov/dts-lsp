@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+#[cfg(test)]
+use std::sync::Mutex;
 use tower_lsp::jsonrpc::Error;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::{Position, Range, Url};
@@ -62,4 +64,21 @@ pub fn current_url() -> Result<Url> {
         return Err(Error::internal_error());
     };
     Ok(uri)
+}
+
+// Leak object, but keep reference in static array to avoid valgrind errors
+#[cfg(test)]
+pub trait Leakable {
+    fn leak(self) -> &'static Self
+    where
+        Self: Sized,
+        Self: Sync,
+        Self: Send,
+    {
+        static LEAKED: Mutex<Vec<&(dyn Leakable + Sync + Send)>> = Mutex::new(Vec::new());
+        let leak = Box::leak(Box::new(self));
+        let mut v = LEAKED.lock().unwrap();
+        v.push(leak);
+        leak
+    }
 }

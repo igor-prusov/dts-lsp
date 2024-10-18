@@ -5,15 +5,24 @@ use logger::LogProcessor;
 use std::fs::read_to_string;
 use std::sync::mpsc;
 use utils::current_url;
+use utils::Leakable;
+
+impl Leakable for Config {}
 
 async fn make_backend_ext(path: &str, process_neighbours: bool) -> Backend {
     // Go to test directory, each test directory emulates a workspace
     let handle = tokio::runtime::Handle::current();
     LogProcessor::local_set(LogProcessor::Strict);
-    let be = Backend {
-        data: Workspace::new(handle, None),
+    let config = Config {
         process_neighbours,
+        ..Default::default()
+    }
+    .leak();
+
+    let be = Backend {
+        data: Workspace::new(handle, None, config),
         client: None,
+        config,
     };
     let mut root = current_url().unwrap();
     let root_path = root.path().to_string() + "/" + path;

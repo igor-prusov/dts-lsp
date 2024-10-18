@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::file_depot;
 use crate::file_depot::FileDepot;
 use crate::includes_depot::IncludesDepot;
@@ -22,6 +23,7 @@ use tree_sitter::Tree;
 use crate::diagnostics;
 
 pub struct Workspace {
+    config: &'static Config,
     handle: Handle,
     client: Option<Client>,
     pub fd: FileDepot,
@@ -31,9 +33,10 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(handle: Handle, client: Option<Client>) -> Workspace {
+    pub fn new(handle: Handle, client: Option<Client>, config: &'static Config) -> Workspace {
         let fd = FileDepot::new();
         Workspace {
+            config,
             ld: LabelsDepot::new(&fd),
             rd: ReferencesDepot::new(&fd),
             id: IncludesDepot::new(&fd),
@@ -43,8 +46,6 @@ impl Workspace {
         }
     }
 
-    // TODO: Temporarily disabled due to false positives
-    #[allow(dead_code)]
     fn process_diagnostics(&self, tree: &Tree, uri: &Url) {
         let diagnostics = diagnostics::gather(tree);
         let u = uri.clone();
@@ -204,7 +205,9 @@ impl Workspace {
         }
 
         self.process_labels(&tree, uri, &text);
-        //self.process_diagnostics(&tree, uri);
+        if self.config.experimental {
+            self.process_diagnostics(&tree, uri);
+        }
         self.process_references(&tree, uri, &text);
         self.process_includes(&tree, uri, &text)
     }
