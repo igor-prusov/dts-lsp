@@ -1,3 +1,4 @@
+use config::Config;
 use logger::log_message;
 use logger::Logger;
 use std::collections::HashMap;
@@ -12,6 +13,7 @@ use tree_sitter::Parser;
 use tree_sitter::Point;
 use utils::convert_range;
 
+mod config;
 mod diagnostics;
 mod file_depot;
 mod includes_depot;
@@ -29,15 +31,15 @@ use workspace::Workspace;
 struct Backend {
     data: Workspace,
     client: Option<Client>,
-    process_neighbours: bool,
+    config: &'static Config,
 }
 
 impl Backend {
-    fn new(handle: Handle, client: Client) -> Self {
+    fn new(handle: Handle, client: Client, config: &'static Config) -> Self {
         Backend {
-            data: Workspace::new(handle, Some(client.clone())),
-            process_neighbours: true,
+            data: Workspace::new(handle, Some(client.clone()), config),
             client: Some(client),
+            config,
         }
     }
 
@@ -118,7 +120,7 @@ impl LanguageServer for Backend {
         let text = params.text_document.text.as_str();
         self.data.handle_file(uri, Some(text.to_string()));
 
-        if self.process_neighbours {
+        if self.config.process_neighbours {
             self.data.open_neighbours(uri);
         }
     }
@@ -353,7 +355,7 @@ async fn main() {
     let (service, socket) = LspService::new(|client| {
         let handle = tokio::runtime::Handle::current();
         Logger::set(Logger::Lsp(handle.clone(), client.clone()));
-        Backend::new(handle, client)
+        Backend::new(handle, client, config::get())
     });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
