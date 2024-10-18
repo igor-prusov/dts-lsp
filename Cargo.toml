@@ -16,7 +16,8 @@ readme = "README.md"
 
 [dependencies]
 lazy_static = "1.4.0"
-tokio = { version = "1.36.0", features = [ "full" ] }
+streaming-iterator = "0.1.9"
+tokio = { version = "1.40.0", features = [ "full" ] }
 tower-lsp = "0.20.0"
-tree-sitter = "0.22.2"
-tree-sitter-devicetree = "0.10.0"
+tree-sitter = "0.24.3"
+tree-sitter-devicetree = "0.11.1"

@@ -10,6 +10,7 @@ use crate::{error, log_message, warn};
 use std::fs::metadata;
 use std::fs::read_dir;
 use std::fs::read_to_string;
+use streaming_iterator::StreamingIterator;
 use tokio::runtime::Handle;
 use tower_lsp::lsp_types::{MessageType, Url};
 use tower_lsp::Client;
@@ -63,9 +64,9 @@ impl Workspace {
             "(node label: (identifier)@id)",
         )
         .unwrap();
-        let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
+        let mut matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
         let mut labels = Vec::new();
-        for m in matches {
+        while let Some(m) = matches.next() {
             let nodes = m.nodes_for_capture_index(0);
             for node in nodes {
                 let label = node.utf8_text(text.as_bytes()).unwrap();
@@ -90,9 +91,9 @@ impl Workspace {
             ]",
         )
         .unwrap();
-        let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
+        let mut matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
         let mut v = Vec::new();
-        for m in matches {
+        while let Some(m) = matches.next() {
             let nodes = m.nodes_for_capture_index(0);
             for node in nodes {
                 let label = node.utf8_text(text.as_bytes()).unwrap();
@@ -122,9 +123,9 @@ impl Workspace {
             "(reference label: (identifier)@id)",
         )
         .unwrap();
-        let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
+        let mut matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
         let mut references = Vec::new();
-        for m in matches {
+        while let Some(m) = matches.next() {
             let nodes = m.nodes_for_capture_index(0);
             for node in nodes {
                 let label = node.utf8_text(text.as_bytes()).unwrap();
@@ -149,8 +150,8 @@ impl Workspace {
             ]",
         )
         .unwrap();
-        let matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
-        for m in matches {
+        let mut matches = cursor.matches(&q, tree.root_node(), text.as_bytes());
+        while let Some(m) = matches.next() {
             let nodes = m
                 .nodes_for_capture_index(0)
                 .zip(m.nodes_for_capture_index(1));
