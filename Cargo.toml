@@ -16,7 +16,6 @@ readme = "README.md"
 
 [dependencies]
 clap = { version = "4.5.20", features = ["derive"] }
-lazy_static = "1.4.0"
 streaming-iterator = "0.1.9"
 tokio = { version = "1.40.0", features = [ "full" ] }
 tower-lsp = "0.20.0"

@@ -1,5 +1,4 @@
 use crate::MessageType;
-use lazy_static::lazy_static;
 use std::fmt::Display;
 use std::sync::Mutex;
 use tokio::runtime::Handle;
@@ -84,9 +83,7 @@ impl LogProcessor {
     }
 }
 
-lazy_static! {
-    static ref LOGGER: Mutex<Logger> = Mutex::new(Logger::Print);
-}
+static LOGGER: Mutex<Logger> = Mutex::new(Logger::Print);
 
 #[cfg(test)]
 thread_local! {
