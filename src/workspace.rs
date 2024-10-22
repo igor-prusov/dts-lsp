@@ -11,6 +11,7 @@ use crate::{error, log_message, warn};
 use std::fs::metadata;
 use std::fs::read_dir;
 use std::fs::read_to_string;
+use std::path::PathBuf;
 use streaming_iterator::StreamingIterator;
 use tokio::runtime::Handle;
 use tower_lsp::lsp_types::{MessageType, Url};
@@ -221,22 +222,14 @@ impl Workspace {
         }
     }
 
-    pub async fn open_neighbours(&self, uri: &Url) {
-        let d = uri.join(".").unwrap();
-        let Ok(path) = d.to_file_path() else {
-            error!("Invalid url {}", d);
-            return;
-        };
-
-        // Skip if client has opened a buffer for a file that has some
-        // directories in its path that have not been created yet.
-        let Ok(files) = read_dir(path) else {
-            return;
-        };
-
+    async fn handle_files<I>(&self, input_files: I)
+    where
+        I: Iterator<Item = PathBuf>,
+    {
         let mut handles = Vec::new();
-        for f in files {
-            let p = f.unwrap().path();
+        for f in input_files {
+            let p = f;
+
             if !metadata(&p).unwrap().is_file() {
                 continue;
             }
@@ -255,5 +248,42 @@ impl Workspace {
         for handle in handles {
             handle.await.unwrap();
         }
+    }
+
+    pub async fn open_neighbours(&self, uri: &Url) {
+        let d = uri.join(".").unwrap();
+
+        let Ok(path) = d.to_file_path() else {
+            error!("Invalid url {}", d);
+            return;
+        };
+
+        // Skip if client has opened a buffer for a file that has some
+        // directories in its path that have not been created yet.
+        let Ok(files) = read_dir(path) else {
+            return;
+        };
+
+        let input_files = files.into_iter().filter_map(|x| x.ok().map(|x| x.path()));
+
+        self.handle_files(input_files).await;
+    }
+
+    #[cfg(feature = "walkdir")]
+    pub async fn full_scan(&self) {
+        let root = self.fd.get_root_dir().unwrap();
+        let d = root.join(".").unwrap();
+
+        let Ok(path) = d.to_file_path() else {
+            error!("Invalid url {}", d);
+            return;
+        };
+
+        let input_files = walkdir::WalkDir::new(path)
+            .into_iter()
+            .filter_map(std::result::Result::ok)
+            .map(|x| x.path().to_path_buf());
+
+        self.handle_files(input_files).await;
     }
 }
