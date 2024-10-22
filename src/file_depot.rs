@@ -224,7 +224,7 @@ impl Data {
         self.root_dir = Some(uri.clone());
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "walkdir"))]
     pub fn get_root_dir(&self) -> Option<Url> {
         self.root_dir.clone()
     }
@@ -307,7 +307,7 @@ impl FileDepot {
         self.data.lock().unwrap().set_root_dir(uri);
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "walkdir"))]
     pub fn get_root_dir(&self) -> Option<Url> {
         self.data.lock().unwrap().get_root_dir()
     }

@@ -81,6 +81,11 @@ impl LanguageServer for Backend {
         };
         self.data.fd.set_root_dir(&uri);
 
+        #[cfg(feature = "walkdir")]
+        if self.config.full_scan {
+            self.data.full_scan().await;
+        }
+
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
@@ -120,7 +125,8 @@ impl LanguageServer for Backend {
         let text = params.text_document.text.as_str();
         self.data.handle_file(uri, Some(text.to_string()));
 
-        if self.config.process_neighbours {
+        // No need to open other files if full scan was done
+        if self.config.process_neighbours && !self.config.full_scan {
             self.data.open_neighbours(uri).await;
         }
     }
