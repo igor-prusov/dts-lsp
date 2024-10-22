@@ -121,7 +121,7 @@ impl LanguageServer for Backend {
         self.data.handle_file(uri, Some(text.to_string()));
 
         if self.config.process_neighbours {
-            self.data.open_neighbours(uri);
+            self.data.open_neighbours(uri).await;
         }
     }
 
