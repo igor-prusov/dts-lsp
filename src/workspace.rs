@@ -22,6 +22,7 @@ use tree_sitter::Tree;
 
 use crate::diagnostics;
 
+#[derive(Clone)]
 pub struct Workspace {
     config: &'static Config,
     handle: Handle,
@@ -220,7 +221,7 @@ impl Workspace {
         }
     }
 
-    pub fn open_neighbours(&self, uri: &Url) {
+    pub async fn open_neighbours(&self, uri: &Url) {
         let d = uri.join(".").unwrap();
         let Ok(path) = d.to_file_path() else {
             error!("Invalid url {}", d);
@@ -233,6 +234,7 @@ impl Workspace {
             return;
         };
 
+        let mut handles = Vec::new();
         for f in files {
             let p = f.unwrap().path();
             if !metadata(&p).unwrap().is_file() {
@@ -242,7 +244,16 @@ impl Workspace {
             if self.fd.exist(&u) {
                 continue;
             }
-            self.handle_file(&u, None);
+
+            let me = self.clone();
+            let handle = tokio::spawn(async move {
+                me.handle_file(&u, None);
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.await.unwrap();
         }
     }
 }

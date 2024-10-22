@@ -3,7 +3,7 @@ use crate::utils::Symbol;
 use crate::{error, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tower_lsp::lsp_types::{MessageType, Range, Url};
 
 #[cfg(test)]
@@ -128,14 +128,15 @@ impl Data {
     }
 }
 
+#[derive(Clone)]
 pub struct ReferencesDepot {
-    data: Mutex<Data>,
+    data: Arc<Mutex<Data>>,
 }
 
 impl ReferencesDepot {
     pub fn new(fd: &FileDepot) -> ReferencesDepot {
         ReferencesDepot {
-            data: Mutex::new(Data::new(fd)),
+            data: Arc::new(Mutex::new(Data::new(fd))),
         }
     }
 
