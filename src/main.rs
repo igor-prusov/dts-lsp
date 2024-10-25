@@ -81,11 +81,6 @@ impl LanguageServer for Backend {
         };
         self.data.fd.set_root_dir(&uri);
 
-        #[cfg(feature = "walkdir")]
-        if self.config.full_scan {
-            self.data.full_scan().await;
-        }
-
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
@@ -111,6 +106,10 @@ impl LanguageServer for Backend {
         info!("include_path: {x}");
 
         info!("server initialized!");
+        #[cfg(feature = "walkdir")]
+        if self.config.full_scan {
+            self.data.full_scan().await;
+        }
     }
 
     async fn shutdown(&self) -> Result<()> {
