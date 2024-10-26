@@ -8,6 +8,8 @@ use crate::utils::convert_range;
 use crate::utils::extension_one_of;
 use crate::utils::is_header;
 use crate::{error, log_message, warn};
+use diagnostics::DiagnosticExt;
+use std::collections::HashMap;
 use std::fs::metadata;
 use std::fs::read_dir;
 use std::fs::read_to_string;
@@ -45,17 +47,6 @@ impl Workspace {
             fd,
             handle,
             client,
-        }
-    }
-
-    fn process_diagnostics(&self, tree: &Tree, uri: &Url) {
-        let diagnostics = diagnostics::gather(tree);
-        let u = uri.clone();
-
-        if let Some(client) = self.client.clone() {
-            self.handle.spawn(async move {
-                client.publish_diagnostics(u, diagnostics, None).await;
-            });
         }
     }
 
@@ -168,29 +159,36 @@ impl Workspace {
         }
     }
 
-    fn handle_single_file(&self, uri: &Url, text: Option<String>) -> Vec<Url> {
+    fn handle_single_file(
+        &self,
+        uri: &Url,
+        text: Option<String>,
+        includes: &mut Vec<Url>,
+        diagnostics: &mut HashMap<Url, Vec<DiagnosticExt>>,
+    ) {
         if !extension_one_of(uri, &["dts", "dtsi", "h"]) {
-            return Vec::new();
+            return;
         }
 
         let Ok(path) = uri.to_file_path() else {
             error!("Invalid url {}", uri);
-            return Vec::new();
+            return;
         };
 
         let text = match text.map_or(read_to_string(path), Ok) {
             Ok(x) => x,
             Err(e) => {
                 warn!("can't read file {}: {}", uri, e.kind());
-                return Vec::new();
+                return;
             }
         };
 
         match self.fd.insert(uri, &text) {
-            file_depot::InsertResult::Exists => return Vec::new(),
+            file_depot::InsertResult::Exists => return,
             file_depot::InsertResult::Modified => {
                 self.ld.invalidate(uri);
                 self.rd.invalidate(uri);
+                self.id.invalidate(uri);
             }
             file_depot::InsertResult::Ok => (),
         };
@@ -203,22 +201,46 @@ impl Workspace {
 
         self.process_defines(&tree, uri, &text);
         if is_header(uri) {
-            return Vec::new();
+            return;
         }
 
         self.process_labels(&tree, uri, &text);
+        // Currently there are too many false positives, this also means that there will be too
+        // much traffic towards client, making it slow when big workspace is fully scanned.
         if self.config.experimental {
-            self.process_diagnostics(&tree, uri);
+            let mut t = diagnostics::gather(uri, &tree, &self.id, &text);
+            let e = diagnostics.entry(uri.clone()).or_default();
+            e.append(&mut t);
         }
         self.process_references(&tree, uri, &text);
-        self.process_includes(&tree, uri, &text)
+        let mut t = self.process_includes(&tree, uri, &text);
+        includes.append(&mut t);
     }
 
     pub fn handle_file(&self, uri: &Url, text: Option<String>) {
-        let mut includes = self.handle_single_file(uri, text);
+        let mut includes: Vec<Url> = Vec::new();
+        let mut diagnostics: HashMap<Url, Vec<DiagnosticExt>> = HashMap::new();
+
+        self.handle_single_file(uri, text, &mut includes, &mut diagnostics);
         while let Some(new_url) = includes.pop() {
-            let mut tmp = self.handle_single_file(&new_url, None);
-            includes.append(&mut tmp);
+            self.handle_single_file(&new_url, None, &mut includes, &mut diagnostics);
+        }
+
+        if !diagnostics.is_empty() {
+            if let Some(client) = self.client.clone() {
+                for (url, v) in diagnostics {
+                    let v = v
+                        .iter()
+                        .filter(|x| x.verify(&self.id))
+                        .map(|x| x.diag.clone())
+                        .collect();
+
+                    let client = client.clone();
+                    self.handle.spawn(async move {
+                        client.publish_diagnostics(url, v, None).await;
+                    });
+                }
+            }
         }
     }
 

@@ -514,6 +514,7 @@ async fn rename_2() {
     ]));
 }
 
+// TODO: test includes depot invalidation
 #[tokio::test]
 async fn fiel_edits_0() {
     let be = &make_backend("tests/5/").await;
