@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use tower_lsp::lsp_types::{MessageType, Range, Url};
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Clone)]
 struct Define {
     uri: Url,
     name: String,
@@ -61,6 +61,20 @@ impl Data {
         None
     }
 
+    fn invalidate(&mut self, uri: &Url) {
+        let mut v = Vec::new();
+
+        for k in self.define_to_symbol.keys() {
+            if k.uri == *uri {
+                v.push(k.clone());
+            }
+        }
+
+        for key in v {
+            self.define_to_symbol.remove(&key);
+        }
+    }
+
     #[cfg(test)]
     fn dump(&self) {
         info!("====== (defines) ======");
@@ -97,5 +111,9 @@ impl IncludesDepot {
     #[cfg(test)]
     pub fn dump(&self) {
         self.data.lock().unwrap().dump();
+    }
+
+    pub fn invalidate(&self, uri: &Url) {
+        self.data.lock().unwrap().invalidate(uri);
     }
 }

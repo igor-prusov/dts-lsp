@@ -12,6 +12,9 @@ keywords = ["dts", "lsp", "language-server", "device-tree"]
 categories = ["development-tools"]
 readme = "README.md"
 
+[features]
+default = ["walkdir"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
