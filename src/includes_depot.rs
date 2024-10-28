@@ -1,10 +1,14 @@
 use crate::file_depot::FileDepot;
 use crate::utils::Symbol;
-use crate::{info, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-use tower_lsp::lsp_types::{MessageType, Range, Url};
+use tower_lsp::lsp_types::{Range, Url};
+
+#[cfg(test)]
+use crate::{info, log_message};
+#[cfg(test)]
+use tower_lsp::lsp_types::MessageType;
 
 #[derive(Eq, Hash, PartialEq, Clone)]
 struct Define {
@@ -38,7 +42,6 @@ impl Data {
     fn find_define(&self, uri: &Url, name: &str) -> Option<Symbol> {
         let mut visited = HashSet::new();
         let mut to_visit = vec![uri.clone()];
-        info!("find_define: {uri}, {name}");
 
         let v = self.fd.get_component(uri);
         for f in &v {
@@ -54,7 +57,6 @@ impl Data {
             }) {
                 return Some(Symbol::new(uri.clone(), x.0));
             }
-            info!("... not found in {uri}");
             visited.insert(uri);
         }
 
