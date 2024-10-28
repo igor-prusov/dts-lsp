@@ -2,6 +2,7 @@ use config::Config;
 use logger::log_message;
 use logger::Logger;
 use std::collections::HashMap;
+use std::time::Instant;
 use tokio::runtime::Handle;
 use tower_lsp::jsonrpc::Error;
 use tower_lsp::jsonrpc::Result;
@@ -108,7 +109,10 @@ impl LanguageServer for Backend {
         info!("server initialized!");
         #[cfg(feature = "walkdir")]
         if self.config.full_scan {
+            let start = Instant::now();
             self.data.full_scan().await;
+            let end = start.elapsed();
+            info!("Full scan completed in {}s", end.as_secs());
         }
     }
 
