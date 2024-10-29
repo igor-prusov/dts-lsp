@@ -1,9 +1,13 @@
-use crate::{error, info, log_message, utils::is_header};
+use crate::utils::url_exists;
+use crate::{error, log_message, utils::is_header};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tower_lsp::lsp_types::{MessageType, TextEdit, Url};
+
+#[cfg(test)]
+use crate::info;
 
 #[derive(Default, Clone)]
 struct FileEntry {
@@ -15,7 +19,6 @@ struct FileEntry {
 #[derive(Clone)]
 struct Data {
     root_dir: Option<Url>, // TODO: Maybe some type that allows only one assignment?
-    includes_prefix: String,
     entries: HashMap<Url, FileEntry>,
 }
 
@@ -47,11 +50,28 @@ impl<'a> MyTextEdit<'a> {
     }
 }
 
+fn build_path(root: &Url, includes_dir: &str, rel_path: &str) -> Option<Url> {
+    let Ok(dst) = root.join(includes_dir) else {
+        error!("failed to join {root} and {}", includes_dir);
+        return None;
+    };
+
+    let Ok(dst) = dst.join(rel_path) else {
+        error!("failed to join {root} and {}", rel_path);
+        return None;
+    };
+
+    if url_exists(&dst) {
+        Some(dst)
+    } else {
+        None
+    }
+}
+
 impl Data {
     fn new() -> Data {
         Data {
             root_dir: None,
-            includes_prefix: "include".to_string(),
             entries: HashMap::new(),
         }
     }
@@ -112,17 +132,14 @@ impl Data {
             return None;
         };
 
-        let Ok(dst) = root.join(&(self.includes_prefix.clone() + "/")) else {
-            error!("failed to join {root} and {}", self.includes_prefix);
-            return None;
-        };
-
-        let Ok(dst) = dst.join(rel_path) else {
-            error!("failed to join {root} and {}", rel_path);
-            return None;
-        };
-
-        Some(dst)
+        // TODO: make it configurable
+        for prefix in ["include/", "arch/", "scripts/dtc/include-prefixes/"] {
+            let dst = build_path(root, prefix, rel_path);
+            if dst.is_some() {
+                return dst;
+            }
+        }
+        None
     }
 
     fn add_include(&mut self, uri: &Url, include_uri: &Url) {
@@ -188,6 +205,7 @@ impl Data {
         res.iter().cloned().collect()
     }
 
+    #[cfg(test)]
     fn dump(&self) {
         info!("===FILES===");
         for (k, v) in &self.entries {
@@ -208,10 +226,6 @@ impl Data {
 
     fn get_text(&self, uri: &Url) -> Option<String> {
         self.entries.get(uri).and_then(|x| x.text.clone())
-    }
-
-    fn set_includes_prefix(&mut self, prefix: &str) {
-        self.includes_prefix = prefix.to_string();
     }
 
     fn set_root_dir(&mut self, uri: &Url) {
@@ -260,6 +274,7 @@ impl FileDepot {
         data.insert(uri, text)
     }
 
+    #[cfg(test)]
     pub fn dump(&self) {
         {
             let lock = self.data.lock().unwrap();
@@ -295,12 +310,6 @@ impl FileDepot {
 
     pub fn get_real_path(&self, uri: &str) -> Option<Url> {
         self.data.lock().unwrap().get_real_path(uri)
-    }
-
-    // TODO: Allow per-workspace include prefixes
-    #[allow(dead_code)]
-    pub fn set_includes_prefix(&self, prefix: &str) {
-        self.data.lock().unwrap().set_includes_prefix(prefix);
     }
 
     pub fn set_root_dir(&self, uri: &Url) {

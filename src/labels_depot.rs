@@ -48,7 +48,6 @@ impl Data {
         let mut to_visit = vec![uri.clone()];
         let mut res = Vec::new();
 
-        self.fd.dump();
         let v = self.fd.get_component(uri);
         for f in &v {
             if !visited.contains(f) {

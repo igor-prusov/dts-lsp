@@ -366,7 +366,7 @@ async fn open_6() {
 
     be.mock_open(path).await;
 
-    assert_eq!(be.data.fd.size(), 2);
+    assert_eq!(be.data.fd.size(), 1);
     assert_eq!(be.data.fd.n_with_text(), 1);
     assert_eq!(be.data.ld.size(), 2);
     assert_eq!(be.data.rd.size(), 0);
@@ -383,7 +383,7 @@ async fn open_6() {
         &rx,
         vec![(
             MessageType::WARNING,
-            format!("can't read file {missing_file}: entity not found"),
+            format!("Could not find include: {missing_file}"),
         )],
     );
 }

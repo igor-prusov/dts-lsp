@@ -7,6 +7,7 @@ use crate::references_depot::ReferencesDepot;
 use crate::utils::convert_range;
 use crate::utils::extension_one_of;
 use crate::utils::is_header;
+use crate::utils::url_exists;
 use crate::{error, log_message, warn};
 use diagnostics::DiagnosticExt;
 use std::collections::HashMap;
@@ -91,16 +92,19 @@ impl Workspace {
             let nodes = m.nodes_for_capture_index(0);
             for node in nodes {
                 let label = node.utf8_text(text.as_bytes()).unwrap();
-                let mut needs_fixup = false;
-                if label.ends_with('>') {
-                    needs_fixup = true;
-                }
+
                 let label = label.trim_matches('"');
                 let label = label.trim_matches('<');
                 let label = label.trim_matches('>');
                 let mut new_url = uri.join(label).unwrap();
-                if needs_fixup {
-                    new_url = self.fd.get_real_path(label).unwrap();
+
+                if !url_exists(&new_url) {
+                    if let Some(tmp) = self.fd.get_real_path(label) {
+                        new_url = tmp;
+                    } else {
+                        warn!("Could not find include: {new_url}");
+                        continue;
+                    }
                 }
                 v.push(new_url.clone());
                 self.fd.add_include(uri, &new_url);
