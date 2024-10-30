@@ -55,7 +55,7 @@ impl Workspace {
         let mut cursor = QueryCursor::new();
 
         let q = Query::new(
-            &tree_sitter_devicetree::language(),
+            &tree_sitter_devicetree::LANGUAGE.into(),
             "(node label: (identifier)@id)",
         )
         .unwrap();
@@ -78,7 +78,7 @@ impl Workspace {
     pub fn process_includes(&self, tree: &Tree, uri: &Url, text: &str) -> Vec<Url> {
         let mut cursor = QueryCursor::new();
         let q = Query::new(
-            &tree_sitter_devicetree::language(),
+            &tree_sitter_devicetree::LANGUAGE.into(),
             "[
             (dtsi_include path: (string_literal)@id)
             (preproc_include path: (string_literal)@id)
@@ -117,7 +117,7 @@ impl Workspace {
         let mut cursor = QueryCursor::new();
 
         let q = Query::new(
-            &tree_sitter_devicetree::language(),
+            &tree_sitter_devicetree::LANGUAGE.into(),
             "(reference label: (identifier)@id)",
         )
         .unwrap();
@@ -141,7 +141,7 @@ impl Workspace {
         let mut cursor = QueryCursor::new();
 
         let q = Query::new(
-            &tree_sitter_devicetree::language(),
+            &tree_sitter_devicetree::LANGUAGE.into(),
             "[
             (preproc_def name: (identifier)@name value: (preproc_arg)@id)
             (preproc_function_def name: (identifier)@name parameters: (preproc_params) value: (preproc_arg)@id)
@@ -199,7 +199,7 @@ impl Workspace {
 
         let mut parser = Parser::new();
         parser
-            .set_language(&tree_sitter_devicetree::language())
+            .set_language(&tree_sitter_devicetree::LANGUAGE.into())
             .unwrap();
         let tree = parser.parse(&text, None).unwrap();
 
