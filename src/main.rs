@@ -146,7 +146,7 @@ impl LanguageServer for Backend {
         };
         let mut parser = Parser::new();
         parser
-            .set_language(&tree_sitter_devicetree::language())
+            .set_language(&tree_sitter_devicetree::LANGUAGE.into())
             .unwrap();
         let tree = parser.parse(&text, None).unwrap();
         if let Some(node) = tree
@@ -199,7 +199,7 @@ impl LanguageServer for Backend {
 
         let mut parser = Parser::new();
         parser
-            .set_language(&tree_sitter_devicetree::language())
+            .set_language(&tree_sitter_devicetree::LANGUAGE.into())
             .unwrap();
         let tree = parser.parse(&text, None).unwrap();
         if let Some(node) = tree
@@ -234,7 +234,7 @@ impl LanguageServer for Backend {
         };
         let mut parser = Parser::new();
         parser
-            .set_language(&tree_sitter_devicetree::language())
+            .set_language(&tree_sitter_devicetree::LANGUAGE.into())
             .unwrap();
         let tree = parser.parse(&text, None).unwrap();
 
@@ -267,7 +267,7 @@ impl LanguageServer for Backend {
 
         let mut parser = Parser::new();
         parser
-            .set_language(&tree_sitter_devicetree::language())
+            .set_language(&tree_sitter_devicetree::LANGUAGE.into())
             .unwrap();
         let tree = parser.parse(&text, None).unwrap();
         if let Some(node) = tree
