@@ -212,7 +212,7 @@ impl Workspace {
         // Currently there are too many false positives, this also means that there will be too
         // much traffic towards client, making it slow when big workspace is fully scanned.
         if self.config.experimental {
-            let mut t = diagnostics::gather(uri, &tree, &self.id, &text);
+            let mut t = diagnostics::gather(uri, &tree, &text);
             let e = diagnostics.entry(uri.clone()).or_default();
             e.append(&mut t);
         }

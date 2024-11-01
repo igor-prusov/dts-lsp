@@ -7,15 +7,10 @@ pub struct DiagnosticExt {
     pub diag: Diagnostic,
     url: Url, // TODO: remove this
     label: String,
+    parent: Option<String>,
 }
 
-fn process_node(
-    id: &IncludesDepot,
-    node: &Node,
-    diagnostics: &mut Vec<DiagnosticExt>,
-    url: &Url,
-    text: &str,
-) {
+fn process_node(node: &Node, diagnostics: &mut Vec<DiagnosticExt>, url: &Url, text: &str) {
     let range = convert_range(&node.range());
     let label = node.utf8_text(text.as_bytes()).unwrap();
     if node.is_missing() {
@@ -24,32 +19,38 @@ fn process_node(
             diag: Diagnostic::new_simple(range, msg),
             label: label.to_string(),
             url: url.clone(),
+            parent: None,
         });
-    } else if node.is_error() && id.find_define(url, label).is_none() {
+    } else if node.is_error() {
         // Ignore syntax errors if they are in tokens that will be replaced after preprocessing
         // TODO: We should implement preprocessor pass for proper error reporting, but for now
         // just trade error detection inside macros for less false-positive noise.
+        let parent = node
+            .parent()
+            .and_then(|x| x.utf8_text(text.as_bytes()).ok())
+            .map(std::string::ToString::to_string);
         diagnostics.push(DiagnosticExt {
             diag: Diagnostic::new_simple(range, "Syntax error".to_string()),
             label: label.to_string(),
             url: url.clone(),
+            parent,
         });
     }
 }
 
-pub fn gather(url: &Url, tree: &Tree, id: &IncludesDepot, text: &str) -> Vec<DiagnosticExt> {
+pub fn gather(url: &Url, tree: &Tree, text: &str) -> Vec<DiagnosticExt> {
     let mut diagnostics = Vec::new();
     let mut it = tree.walk();
-    process_node(id, &it.node(), &mut diagnostics, url, text);
+    process_node(&it.node(), &mut diagnostics, url, text);
     let mut recurse = true;
 
     #[allow(clippy::if_same_then_else)]
     loop {
         if recurse && it.goto_first_child() {
-            process_node(id, &it.node(), &mut diagnostics, url, text);
+            process_node(&it.node(), &mut diagnostics, url, text);
             recurse = true;
         } else if it.goto_next_sibling() {
-            process_node(id, &it.node(), &mut diagnostics, url, text);
+            process_node(&it.node(), &mut diagnostics, url, text);
             recurse = true;
         } else if it.goto_parent() {
             recurse = false;
@@ -66,6 +67,18 @@ impl DiagnosticExt {
             return true;
         }
 
-        id.find_define(&self.url, &self.label).is_none()
+        if id.find_define(&self.url, &self.label).is_some() {
+            return false;
+        }
+
+        if let Some(parent) = &self.parent {
+            if let Some((parent, _)) = parent.split_once('(') {
+                if id.find_define(&self.url, parent).is_some() {
+                    return false;
+                }
+            }
+        }
+
+        true
     }
 }
