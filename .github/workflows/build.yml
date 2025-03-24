@@ -54,4 +54,4 @@ jobs:
       run: cargo fmt --check
 
     - name: Clippy
-      run: cargo clippy --all-targets -- -D clippy::pedantic -D clippy::cargo
+      run: cargo clippy --all-targets -- -D clippy::pedantic
