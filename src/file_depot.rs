@@ -30,7 +30,7 @@ pub enum InsertResult {
 }
 
 struct MyTextEdit<'a>(&'a TextEdit);
-impl<'a> MyTextEdit<'a> {
+impl MyTextEdit<'_> {
     fn new_text(&self) -> &str {
         &self.0.new_text
     }
