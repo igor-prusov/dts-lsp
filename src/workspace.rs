@@ -170,7 +170,7 @@ impl Workspace {
         includes: &mut Vec<Url>,
         diagnostics: &mut HashMap<Url, Vec<DiagnosticExt>>,
     ) {
-        if !extension_one_of(uri, &["dts", "dtsi", "h"]) {
+        if !extension_one_of(uri, &["dts", "dtsi", "dtso", "overlay", "h"]) {
             return;
         }
 

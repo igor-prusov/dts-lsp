@@ -1,0 +1,9 @@
+/dts-v1/;
+
+/ {
+	node: node_a {};
+};
+
+&node {
+	status = "okay";
+};
