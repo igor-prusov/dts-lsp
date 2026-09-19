@@ -318,6 +318,18 @@ async fn open_3() {
 }
 
 #[tokio::test]
+async fn open_overlay_extensions() {
+    /* Overlay sources should be handled like any other devicetree source */
+    let be = &make_backend("tests/overlay/").await;
+
+    be.mock_open("a.dtso").await;
+    assert_eq!(be.has_label("a.dtso", "clk"), 1);
+
+    be.mock_open("b.overlay").await;
+    assert_eq!(be.has_label("b.overlay", "node"), 1);
+}
+
+#[tokio::test]
 async fn open_4() {
     let be = &make_backend("tests/2/").await;
     let path = "b.dts";
