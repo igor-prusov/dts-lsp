@@ -348,7 +348,7 @@ impl LanguageServer for Backend {
         info!("Change file: {uri}");
 
         let text = &params.content_changes[0].text;
-        self.data.handle_file(uri, Some(text.to_string()));
+        self.data.handle_file(uri, Some(text.clone()));
     }
 
     async fn did_save(&self, params: DidSaveTextDocumentParams) {

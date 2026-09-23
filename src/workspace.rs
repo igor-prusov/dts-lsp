@@ -195,7 +195,7 @@ impl Workspace {
                 self.id.invalidate(uri);
             }
             file_depot::InsertResult::Ok => (),
-        };
+        }
 
         let mut parser = Parser::new();
         parser

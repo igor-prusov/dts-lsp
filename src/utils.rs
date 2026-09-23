@@ -84,5 +84,5 @@ pub trait Leakable {
 }
 
 pub fn url_exists(uri: &Url) -> bool {
-    uri.to_file_path().map(|x| x.exists()).unwrap_or(false)
+    uri.to_file_path().is_ok_and(|x| x.exists())
 }
