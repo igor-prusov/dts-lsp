@@ -666,3 +666,34 @@ async fn goto_definition_1() {
     let loc = Location::new(be.make_url("base_base.dtsi"), make_range((2, 1), (2, 10)));
     assert_eq!(res.unwrap().unwrap(), GotoDefinitionResponse::Scalar(loc));
 }
+
+#[tokio::test]
+async fn goto_definition_2() {
+    /* Jump to include file, relative path */
+    let be = &make_backend("tests/2/").await;
+    let path = "a.dts";
+
+    be.mock_open(path).await;
+
+    let pos = Position::new(0, 15); // inside "common.dtsi"
+    let res = be.mock_goto_definition(path, pos).await;
+    let loc = Location::new(be.make_url("common.dtsi"), Range::default());
+    assert_eq!(res.unwrap().unwrap(), GotoDefinitionResponse::Scalar(loc));
+}
+
+#[tokio::test]
+async fn goto_definition_3() {
+    /* Jump to include file resolved via include prefix */
+    let be = &make_backend("tests/includes_with_prefix/").await;
+    let path = "good_file.dts";
+
+    be.mock_open(path).await;
+
+    let pos = Position::new(1, 25); // inside <dt-bindings/test/test.h>
+    let res = be.mock_goto_definition(path, pos).await;
+    let loc = Location::new(
+        be.make_url("include/dt-bindings/test/test.h"),
+        Range::default(),
+    );
+    assert_eq!(res.unwrap().unwrap(), GotoDefinitionResponse::Scalar(loc));
+}
