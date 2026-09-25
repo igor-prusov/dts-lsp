@@ -75,6 +75,21 @@ impl Workspace {
         }
     }
 
+    pub fn resolve_include(&self, uri: &Url, path: &str) -> Option<Url> {
+        let new_url = uri.join(path).unwrap();
+
+        if url_exists(&new_url) {
+            return Some(new_url);
+        }
+
+        if let Some(tmp) = self.fd.get_real_path(path) {
+            return Some(tmp);
+        }
+
+        warn!("Could not find include: {new_url}");
+        None
+    }
+
     pub fn process_includes(&self, tree: &Tree, uri: &Url, text: &str) -> Vec<Url> {
         let mut cursor = QueryCursor::new();
         let q = Query::new(
@@ -96,16 +111,11 @@ impl Workspace {
                 let label = label.trim_matches('"');
                 let label = label.trim_matches('<');
                 let label = label.trim_matches('>');
-                let mut new_url = uri.join(label).unwrap();
 
-                if !url_exists(&new_url) {
-                    if let Some(tmp) = self.fd.get_real_path(label) {
-                        new_url = tmp;
-                    } else {
-                        warn!("Could not find include: {new_url}");
-                        continue;
-                    }
-                }
+                let Some(new_url) = self.resolve_include(uri, label) else {
+                    continue;
+                };
+
                 v.push(new_url.clone());
                 self.fd.add_include(uri, &new_url);
             }

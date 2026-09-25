@@ -159,6 +159,17 @@ impl LanguageServer for Backend {
             let node_kind = node.kind();
 
             return match (node_kind, parent_kind) {
+                ("string_literal", Some("preproc_include" | "dtsi_include"))
+                | ("system_lib_string", Some("preproc_include")) => {
+                    let path = label.trim_matches('"').trim_matches('<').trim_matches('>');
+                    match self.data.resolve_include(&uri, path) {
+                        None => Ok(None),
+                        Some(url) => {
+                            let res = Location::new(url, Range::default());
+                            Ok(Some(GotoDefinitionResponse::Scalar(res)))
+                        }
+                    }
+                }
                 ("identifier", Some("reference")) => {
                     let labels = self.data.ld.find_label(&uri, label);
                     let res: Vec<Location> = labels
