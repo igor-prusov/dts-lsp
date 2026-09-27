@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6] - 2026-09-27
+
+### Features
+
+- Add command line arguments support
+- Add option to force scan all files in workspace
+- Supress diagnostics for C macros in dts files
+- Improve recovery from false positives caused by preprocessor
+- Handle .dtso and .overlay files
+- Implement Goto definition on #include paths
+
+### Bug Fixes
+
+- Add default include paths for Linux
+
+### Performance
+
+- Open neighbour files concurrently
+
 ## [0.1.5] - 2024-09-24
 
 ### Features
