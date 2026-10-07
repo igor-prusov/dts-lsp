@@ -2,6 +2,7 @@ use config::Config;
 use logger::log_message;
 use logger::Logger;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::time::Instant;
 use tokio::runtime::Handle;
 use tower_lsp::jsonrpc::Error;
@@ -291,18 +292,29 @@ impl LanguageServer for Backend {
             let labels = self.data.ld.find_label(&uri, name);
             let references = self.data.rd.find_references(&uri, name);
 
+            let mut renamed = HashSet::new();
             for label in &labels {
-                self.data.ld.rename(&label.uri, name, &params.new_name);
+                if renamed.insert(label.uri.clone()) {
+                    self.data.ld.rename(&label.uri, name, &params.new_name);
+                }
             }
 
+            renamed.clear();
             for reference in &references {
-                self.data.rd.rename(&reference.uri, name, &params.new_name);
+                if renamed.insert(reference.uri.clone()) {
+                    self.data.rd.rename(&reference.uri, name, &params.new_name);
+                }
             }
 
-            // TODO: check that labels in single file are ordered from bottom to top
             for symbol in labels.iter().chain(references.iter()) {
                 let e = result.entry(symbol.uri.clone()).or_default();
                 e.push(TextEdit::new(symbol.range, params.new_name.clone()));
+            }
+
+            // Apply/return edits from bottom to top so that edits do not
+            // shift the positions of the ones that come after them.
+            for edits in result.values_mut() {
+                edits.sort_by_key(|e| std::cmp::Reverse(e.range.start));
             }
 
             for (uri, edits) in &result {

@@ -574,6 +574,38 @@ async fn rename_3() {
     assert!(be.verify_file(&be.make_url(path), &be.make_url("after-4.dts")));
 }
 
+async fn rename_4_check(new_name: &str, expected_file: &str) {
+    let be = make_backend("tests/6/").await;
+    let path = "a.dts";
+
+    be.mock_open(path).await;
+
+    #[rustfmt::skip]
+    assert!(be.verify_references(vec![
+        ("node", "a.dts", make_range((5, 10), (5, 14))),
+        ("node", "a.dts", make_range((9, 10), (9, 14))),
+    ]));
+
+    let res = be.mock_rename(path, Position::new(1, 1), new_name).await;
+    let mut expected = Changes::new(be.data.fd.get_root_dir().unwrap());
+    // Edits are expected from bottom to top.
+    expected.add_edit(path, (9, 10), (9, 14), new_name);
+    expected.add_edit(path, (5, 10), (5, 14), new_name);
+    expected.add_edit(path, (1, 1), (1, 5), new_name);
+    assert_eq!(expected.0, res);
+
+    assert!(be.verify_file(&be.make_url(path), &be.make_url(expected_file)));
+}
+
+#[tokio::test]
+async fn rename_4() {
+    // Single file with two references to the same label on different
+    // lines. Edits must be sorted bottom-to-top so that applying them does
+    // not corrupt the cached text.
+    rename_4_check("a_very_long_label_name", "after-long.txt").await;
+    rename_4_check("nd", "after-short.txt").await;
+}
+
 #[tokio::test]
 async fn references_0() {
     // find references breaks after buffer is changed and restored

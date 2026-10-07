@@ -1,0 +1,12 @@
+/ {
+	a_very_long_label_name: target {
+	};
+
+	a {
+		ref = <&a_very_long_label_name>;
+	};
+
+	b {
+		ref = <&a_very_long_label_name>;
+	};
+};
