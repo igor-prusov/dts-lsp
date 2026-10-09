@@ -1,0 +1,54 @@
+name: Bench
+
+on:
+  push:
+    branches: [ "master" ]
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache corpus
+      uses: actions/cache@v4
+      with:
+        path: target/bench-corpus
+        key: bench-corpus-v6.12
+
+    - name: Fetch benchmark corpus
+      run: ./benches/setup.sh
+
+    - name: Restore baseline
+      uses: actions/cache@v4
+      with:
+        path: target/criterion
+        key: criterion-${{ github.run_id }}
+        restore-keys: criterion-
+
+    - name: Run benchmarks
+      run: cargo bench --bench benchmarks -- --baseline master
+
+    - name: Compare against baseline
+      run: python3 scripts/compare_bench.py
+
+    - name: Refresh baseline
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      run: cargo bench --bench benchmarks -- --save-baseline master
+
+    - name: Upload results
+      uses: actions/upload-artifact@v4
+      with:
+        name: criterion-results
+        path: target/criterion
+        retention-days: 30

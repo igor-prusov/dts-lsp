@@ -1,10 +1,10 @@
+use crate::error;
 use crate::file_depot::FileDepot;
 use crate::utils::Symbol;
-use crate::{error, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-use tower_lsp::lsp_types::{MessageType, Range, Url};
+use tower_lsp::lsp_types::{Range, Url};
 
 #[cfg(test)]
 use crate::info;
@@ -181,6 +181,14 @@ impl LabelsDepot {
 
     pub fn get_labels_for_uri(&self, uri: &Url) -> Vec<(String, Range)> {
         self.data.lock().unwrap().get_labels_for_uri(uri)
+    }
+
+    pub fn all(&self) -> Vec<(String, Url, Range)> {
+        let data = self.data.lock().unwrap();
+        data.label_to_symbol
+            .iter()
+            .map(|(k, v)| (k.name.clone(), k.uri.clone(), *v))
+            .collect()
     }
 
     #[cfg(test)]

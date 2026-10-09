@@ -6,9 +6,7 @@ use std::sync::{Arc, Mutex};
 use tower_lsp::lsp_types::{Range, Url};
 
 #[cfg(test)]
-use crate::{info, log_message};
-#[cfg(test)]
-use tower_lsp::lsp_types::MessageType;
+use crate::info;
 
 #[derive(Eq, Hash, PartialEq, Clone)]
 struct Define {

@@ -1,11 +1,21 @@
+use crate::backend::Backend;
+use crate::config::Config;
+use crate::error;
 use crate::file_depot::FileDepot;
+use crate::info;
 use crate::labels_depot::LabelsDepot;
+use crate::logger::LogProcessor;
 use crate::references_depot::ReferencesDepot;
-use logger::LogProcessor;
+use crate::utils::current_url;
+use crate::utils::Leakable;
+use crate::workspace::Workspace;
+use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::sync::mpsc;
-use utils::current_url;
-use utils::Leakable;
+use tower_lsp::jsonrpc::Result;
+#[allow(clippy::wildcard_imports)]
+use tower_lsp::lsp_types::*;
+use tower_lsp::LanguageServer;
 
 impl Leakable for Config {}
 
@@ -249,8 +259,6 @@ fn validate_messages(rx: &mpsc::Receiver<Diagnostic>, v: Vec<Diagnostic>) {
     }
     assert_eq!(rx.try_recv(), Err(mpsc::TryRecvError::Empty));
 }
-
-use super::*;
 
 #[tokio::test]
 async fn open_0() {

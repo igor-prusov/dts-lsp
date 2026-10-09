@@ -1,10 +1,10 @@
 use crate::utils::url_exists;
-use crate::{error, log_message, utils::is_header};
+use crate::{error, utils::is_header};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tower_lsp::lsp_types::{MessageType, TextEdit, Url};
+use tower_lsp::lsp_types::{TextEdit, Url};
 
 #[cfg(test)]
 use crate::info;
@@ -260,6 +260,12 @@ impl Data {
 #[derive(Clone)]
 pub struct FileDepot {
     data: Arc<Mutex<Data>>,
+}
+
+impl Default for FileDepot {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FileDepot {

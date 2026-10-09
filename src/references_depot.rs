@@ -1,10 +1,10 @@
+use crate::error;
 use crate::file_depot::FileDepot;
 use crate::utils::Symbol;
-use crate::{error, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-use tower_lsp::lsp_types::{MessageType, Range, Url};
+use tower_lsp::lsp_types::{Range, Url};
 
 #[cfg(test)]
 use crate::info;
@@ -151,6 +151,17 @@ impl ReferencesDepot {
             x.clone()
         }
         .find_references(uri, name)
+    }
+
+    pub fn all(&self) -> Vec<(String, Url, Range)> {
+        let data = self.data.lock().unwrap();
+        let mut res = Vec::new();
+        for (k, ranges) in &data.reference_to_symbols {
+            for r in ranges {
+                res.push((k.name.clone(), k.uri.clone(), *r));
+            }
+        }
+        res
     }
 
     pub fn invalidate(&self, uri: &Url) {

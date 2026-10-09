@@ -8,7 +8,7 @@ use crate::utils::convert_range;
 use crate::utils::extension_one_of;
 use crate::utils::is_header;
 use crate::utils::url_exists;
-use crate::{error, log_message, warn};
+use crate::{error, warn};
 use diagnostics::DiagnosticExt;
 use std::collections::HashMap;
 use std::fs::metadata;
@@ -17,7 +17,7 @@ use std::fs::read_to_string;
 use std::path::PathBuf;
 use streaming_iterator::StreamingIterator;
 use tokio::runtime::Handle;
-use tower_lsp::lsp_types::{MessageType, Url};
+use tower_lsp::lsp_types::Url;
 use tower_lsp::Client;
 use tree_sitter::Parser;
 use tree_sitter::Query;
@@ -266,7 +266,10 @@ impl Workspace {
         for f in input_files {
             let p = f;
 
-            if !metadata(&p).unwrap().is_file() {
+            let Ok(md) = metadata(&p) else {
+                continue;
+            };
+            if !md.is_file() {
                 continue;
             }
             let u = Url::from_file_path(p).unwrap();

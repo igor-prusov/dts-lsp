@@ -1,7 +1,7 @@
-use crate::MessageType;
 use std::fmt::Display;
 use std::sync::Mutex;
 use tokio::runtime::Handle;
+use tower_lsp::lsp_types::MessageType;
 use tower_lsp::Client;
 
 #[cfg(test)]
@@ -12,6 +12,7 @@ use std::sync::mpsc;
 pub enum Logger {
     Lsp(Handle, Client),
     Print,
+    Silent,
 }
 
 #[cfg(test)]
@@ -49,6 +50,7 @@ impl Logger {
                 handle.spawn(async move { c.log_message(typ.0, message).await });
             }
             Self::Print => println!("{typ}: {message}"),
+            Self::Silent => (),
         }
     }
 
@@ -101,27 +103,27 @@ pub fn log_message<M: Display>(typ: MessageType, message: M) {
 #[macro_export]
 macro_rules! error {
     ($($args:tt)*) => {
-        log_message(MessageType::ERROR, &format!($($args)*))
+        $crate::logger::log_message(::tower_lsp::lsp_types::MessageType::ERROR, &format!($($args)*))
     };
 }
 
 #[macro_export]
 macro_rules! warn {
     ($($args:tt)*) => {
-        log_message(MessageType::WARNING, &format!($($args)*))
+        $crate::logger::log_message(::tower_lsp::lsp_types::MessageType::WARNING, &format!($($args)*))
     };
 }
 
 #[macro_export]
 macro_rules! info {
     ($($args:tt)*) => {
-        log_message(MessageType::INFO, &format!($($args)*))
+        $crate::logger::log_message(::tower_lsp::lsp_types::MessageType::INFO, &format!($($args)*))
     };
 }
 
 #[macro_export]
 macro_rules! log {
     ($($args:tt)*) => {
-        log_message(MessageType::LOG, &format!($($args)*))
+        $crate::logger::log_message(::tower_lsp::lsp_types::MessageType::LOG, &format!($($args)*))
     };
 }
