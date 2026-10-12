@@ -1,5 +1,5 @@
 use crate::utils::url_exists;
-use crate::{error, log_message, utils::is_header};
+use crate::{error, log_message};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -151,58 +151,29 @@ impl Data {
     }
 
     fn get_component(&self, uri: &Url) -> Vec<Url> {
-        // Process includes
-        let mut to_visit = vec![uri.clone()];
         let mut visited = HashSet::new();
+        let mut to_visit = vec![uri.clone()];
         let mut res: Vec<Url> = Vec::new();
-        while let Some(uri) = to_visit.pop() {
-            if let Some(e) = self.entries.get(&uri) {
-                for f in &e.includes {
-                    if !visited.contains(f) {
-                        if !is_header(f) {
-                            to_visit.push(f.clone());
-                        }
-                        res.push(f.clone());
-                        visited.insert(uri.clone());
-                    }
-                }
+
+        while let Some(u) = to_visit.pop() {
+            if !visited.insert(u.clone()) {
+                continue;
             }
 
-            visited.insert(uri);
-        }
-
-        // Process included by
-        let mut to_visit = Vec::new();
-        if let Some(e) = self.entries.get(uri) {
-            for f in &e.included_by {
-                if !visited.contains(f) {
-                    if !is_header(f) {
-                        to_visit.push(f.clone());
-                    }
-                    visited.insert(f.clone());
-                    res.push(f.clone());
-                }
-            }
-        }
-
-        while let Some(uri) = to_visit.pop() {
-            if let Some(e) = self.entries.get(&uri) {
+            if let Some(e) = self.entries.get(&u) {
                 for f in e.includes.iter().chain(e.included_by.iter()) {
                     if !visited.contains(f) {
-                        if !is_header(f) {
-                            to_visit.push(f.clone());
-                        }
-                        visited.insert(f.clone());
-                        res.push(f.clone());
+                        to_visit.push(f.clone());
                     }
                 }
             }
-            visited.insert(uri);
+
+            if u != *uri {
+                res.push(u);
+            }
         }
 
-        //TODO: Fix this ugly hack
-        let res: HashSet<Url> = res.iter().cloned().collect();
-        res.iter().cloned().collect()
+        res
     }
 
     #[cfg(test)]

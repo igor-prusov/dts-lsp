@@ -340,7 +340,9 @@ async fn open_4() {
     assert_eq!(be.data.ld.size(), 2);
     assert_eq!(be.data.rd.size(), 1);
 
-    assert_eq!(be.has_label(path, "node"), 1);
+    // Both a.dts and b.dts define "node" and share common.dtsi, so the
+    // component-wide lookup finds both.
+    assert_eq!(be.has_label(path, "node"), 2);
 }
 
 #[tokio::test]
@@ -441,8 +443,6 @@ async fn rename_0() {
 
 #[tokio::test]
 async fn rename_1() {
-    // TODO: test single file, multiple references
-    // TODO: probably b.dts should change as well
     let be = &make_backend("tests/2/").await;
     let path = "a.dts";
 
@@ -466,6 +466,7 @@ async fn rename_1() {
     let res = be.mock_rename(path, Position::new(3, 1), "changed").await;
     let mut expected = Changes::new(be.data.fd.get_root_dir().unwrap());
     expected.add_edit("a.dts", (3, 1), (3, 5), "changed");
+    expected.add_edit("b.dts", (2, 1), (2, 5), "changed");
     expected.add_edit("common.dtsi", (2, 10), (2, 14), "changed");
     assert_eq!(expected.0, res);
 
@@ -473,7 +474,7 @@ async fn rename_1() {
 
     assert!(be.verify_labels(vec![
         ("changed", "a.dts", make_range((3, 1), (3, 8))),
-        ("node", "b.dts", make_range((2, 1), (2, 5))),
+        ("changed", "b.dts", make_range((2, 1), (2, 8))),
     ]));
 
     #[rustfmt::skip]
@@ -524,6 +525,30 @@ async fn rename_2() {
     assert!(be.verify_references(vec![
         ("changed", "common.dtsi", make_range((2, 10), (2, 17)))
     ]));
+}
+
+async fn rename_2_check(path: &str, pos: Position) {
+    let be = &make_backend("tests/2/").await;
+
+    be.mock_open(path).await;
+
+    assert_eq!(be.data.fd.size(), 3);
+
+    let res = be.mock_rename(path, pos, "changed").await;
+    let mut expected = Changes::new(be.data.fd.get_root_dir().unwrap());
+    expected.add_edit("a.dts", (3, 1), (3, 5), "changed");
+    expected.add_edit("b.dts", (2, 1), (2, 5), "changed");
+    expected.add_edit("common.dtsi", (2, 10), (2, 14), "changed");
+    assert_eq!(expected.0, res);
+}
+
+#[tokio::test]
+async fn rename_2_from_any_file() {
+    // Rename must produce the same component-wide edit set no matter which
+    // file of the component it is invoked from.
+    rename_2_check("a.dts", Position::new(3, 1)).await;
+    rename_2_check("b.dts", Position::new(2, 1)).await;
+    rename_2_check("common.dtsi", Position::new(2, 10)).await;
 }
 
 // TODO: test includes depot invalidation
@@ -728,4 +753,30 @@ async fn goto_definition_3() {
         Range::default(),
     );
     assert_eq!(res.unwrap().unwrap(), GotoDefinitionResponse::Scalar(loc));
+}
+
+#[tokio::test]
+async fn goto_definition_4() {
+    /* Jump to label definition from a reference in a shared include file.
+     * Both files that include common.dtsi define "node", so both labels
+     * must be returned. */
+    let be = &make_backend("tests/2/").await;
+    let path = "common.dtsi";
+
+    be.mock_open(path).await;
+
+    let pos = Position::new(2, 10); // inside &node
+    let res = be.mock_goto_definition(path, pos).await;
+    let mut expected = vec![
+        Location::new(be.make_url("a.dts"), make_range((3, 1), (3, 5))),
+        Location::new(be.make_url("b.dts"), make_range((2, 1), (2, 5))),
+    ];
+    expected.sort_by(|a, b| a.uri.as_str().cmp(b.uri.as_str()));
+
+    let GotoDefinitionResponse::Array(mut got) = res.unwrap().unwrap() else {
+        panic!("expected an array of locations");
+    };
+    got.sort_by(|a, b| a.uri.as_str().cmp(b.uri.as_str()));
+
+    assert_eq!(got, expected);
 }
